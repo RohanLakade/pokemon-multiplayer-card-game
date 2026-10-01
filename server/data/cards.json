@@ -784,7 +784,7 @@
   {
     "id": 29,
     "name": "nidoran-f",
-    "displayName": "Nidoran F",
+    "displayName": "Nidoran♀",
     "category": "base",
     "speciesId": 29,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/29.png",
@@ -835,7 +835,7 @@
   {
     "id": 32,
     "name": "nidoran-m",
-    "displayName": "Nidoran M",
+    "displayName": "Nidoran♂",
     "category": "base",
     "speciesId": 32,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/32.png",
@@ -2076,7 +2076,7 @@
   {
     "id": 83,
     "name": "farfetchd",
-    "displayName": "Farfetchd",
+    "displayName": "Farfetch'd",
     "category": "base",
     "speciesId": 83,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/83.png",
@@ -2093,7 +2093,7 @@
   {
     "id": 10166,
     "name": "farfetchd-galar",
-    "displayName": "Galarian Farfetchd",
+    "displayName": "Galarian Farfetch'd",
     "category": "regional",
     "speciesId": 83,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10166.png",
@@ -2960,7 +2960,7 @@
   {
     "id": 122,
     "name": "mr-mime",
-    "displayName": "Mr Mime",
+    "displayName": "Mr. Mime",
     "category": "base",
     "speciesId": 122,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/122.png",
@@ -2977,7 +2977,7 @@
   {
     "id": 10168,
     "name": "mr-mime-galar",
-    "displayName": "Galarian Mr Mime",
+    "displayName": "Galarian Mr. Mime",
     "category": "regional",
     "speciesId": 122,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10168.png",
@@ -5663,7 +5663,7 @@
   {
     "id": 250,
     "name": "ho-oh",
-    "displayName": "Ho Oh",
+    "displayName": "Ho-Oh",
     "category": "base",
     "speciesId": 250,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/250.png",
@@ -9318,7 +9318,7 @@
   {
     "id": 439,
     "name": "mime-jr",
-    "displayName": "Mime Jr",
+    "displayName": "Mime Jr.",
     "category": "base",
     "speciesId": 439,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/439.png",
@@ -9998,7 +9998,7 @@
   {
     "id": 474,
     "name": "porygon-z",
-    "displayName": "Porygon Z",
+    "displayName": "Porygon-Z",
     "category": "base",
     "speciesId": 474,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/474.png",
@@ -13755,7 +13755,7 @@
   {
     "id": 669,
     "name": "flabebe",
-    "displayName": "Flabebe",
+    "displayName": "Flabébé",
     "category": "base",
     "speciesId": 669,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/669.png",
@@ -15761,7 +15761,7 @@
   {
     "id": 772,
     "name": "type-null",
-    "displayName": "Type Null",
+    "displayName": "Type: Null",
     "category": "base",
     "speciesId": 772,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/772.png",
@@ -15948,7 +15948,7 @@
   {
     "id": 782,
     "name": "jangmo-o",
-    "displayName": "Jangmo O",
+    "displayName": "Jangmo-o",
     "category": "base",
     "speciesId": 782,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/782.png",
@@ -15965,7 +15965,7 @@
   {
     "id": 783,
     "name": "hakamo-o",
-    "displayName": "Hakamo O",
+    "displayName": "Hakamo-o",
     "category": "base",
     "speciesId": 783,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/783.png",
@@ -15982,7 +15982,7 @@
   {
     "id": 784,
     "name": "kommo-o",
-    "displayName": "Kommo O",
+    "displayName": "Kommo-o",
     "category": "base",
     "speciesId": 784,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/784.png",
@@ -17682,7 +17682,7 @@
   {
     "id": 865,
     "name": "sirfetchd",
-    "displayName": "Sirfetchd",
+    "displayName": "Sirfetch'd",
     "category": "base",
     "speciesId": 865,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/865.png",
@@ -17699,7 +17699,7 @@
   {
     "id": 866,
     "name": "mr-rime",
-    "displayName": "Mr Rime",
+    "displayName": "Mr. Rime",
     "category": "base",
     "speciesId": 866,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/866.png",
@@ -20198,7 +20198,7 @@
   {
     "id": 1001,
     "name": "wo-chien",
-    "displayName": "Wo Chien",
+    "displayName": "Wo-Chien",
     "category": "base",
     "speciesId": 1001,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1001.png",
@@ -20215,7 +20215,7 @@
   {
     "id": 1002,
     "name": "chien-pao",
-    "displayName": "Chien Pao",
+    "displayName": "Chien-Pao",
     "category": "base",
     "speciesId": 1002,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1002.png",
@@ -20232,7 +20232,7 @@
   {
     "id": 1003,
     "name": "ting-lu",
-    "displayName": "Ting Lu",
+    "displayName": "Ting-Lu",
     "category": "base",
     "speciesId": 1003,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1003.png",
@@ -20249,7 +20249,7 @@
   {
     "id": 1004,
     "name": "chi-yu",
-    "displayName": "Chi Yu",
+    "displayName": "Chi-Yu",
     "category": "base",
     "speciesId": 1004,
     "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1004.png",

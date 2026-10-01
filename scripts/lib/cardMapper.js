@@ -1,5 +1,6 @@
 // Pure functions that turn raw PokéAPI data into game cards. No network, no files,
 // so they are easy to unit test.
+import { SPECIES_DISPLAY_NAMES } from './speciesDisplayNames.js';
 
 const STAT_KEYS = {
   hp: 'hp',
@@ -66,7 +67,8 @@ function capitalize(word) {
 
 // "venusaur" + "venusaur-mega" -> "Mega Venusaur"
 export function buildDisplayName(speciesName, pokemonName, category) {
-  const baseName = speciesName.split('-').map(capitalize).join(' ');
+  const baseName =
+    SPECIES_DISPLAY_NAMES[speciesName] ?? speciesName.split('-').map(capitalize).join(' ');
   if (category === 'base') return baseName;
 
   const suffix = pokemonName.startsWith(`${speciesName}-`)
