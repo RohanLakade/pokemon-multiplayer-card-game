@@ -15,6 +15,8 @@
   "scripts": {
     "dev:client": "npm run dev --workspace @pokemon-game/client",
     "build:client": "npm run build --workspace @pokemon-game/client",
+    "build:cards": "npm run build:cards --workspace @pokemon-game/scripts",
+    "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -26,6 +28,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
-    "prettier": "3.9.9"
+    "prettier": "3.9.9",
+    "vitest": "^5.0.3"
   }
 }
