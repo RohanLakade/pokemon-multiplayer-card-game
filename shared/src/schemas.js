@@ -4,7 +4,13 @@ import {
   ROOM_CODE_LENGTH,
   DEFAULT_CARDS_LIMIT,
   MAX_CARDS_LIMIT,
+  PLAYER_NAME_MIN_LENGTH,
+  PLAYER_NAME_MAX_LENGTH,
+  SESSION_TOKEN_LENGTH,
 } from './constants.js';
+import { STAT_KEYS } from './stats.js';
+
+// ---------- REST ----------
 
 // ?limit=&offset= on GET /api/cards.
 // Query strings are always text, so z.coerce turns "20" into the number 20.
@@ -30,4 +36,38 @@ export const roomCodeSchema = z
 // :code on GET /api/rooms/:code
 export const roomCodeParamsSchema = z.object({
   code: roomCodeSchema,
+});
+
+// ---------- Socket.IO payloads ----------
+
+// Letters (any language), accent marks, numbers, spaces, dots, dashes and underscores,
+// with at least one letter or number. No < > & or quotes, so a name can never carry HTML.
+const playerNamePattern = /^(?=.*[\p{L}\p{N}])[\p{L}\p{M}\p{N} _.-]+$/u;
+
+export const playerNameSchema = z
+  .string()
+  .trim()
+  .min(PLAYER_NAME_MIN_LENGTH)
+  .max(PLAYER_NAME_MAX_LENGTH)
+  .regex(playerNamePattern, 'Use letters, numbers, spaces, dots, dashes or underscores');
+
+export const sessionTokenSchema = z
+  .string()
+  .regex(new RegExp(`^[a-f0-9]{${SESSION_TOKEN_LENGTH}}$`), 'Invalid session token');
+
+// room:join. A new player sends a playerName. A returning player sends their sessionToken.
+export const joinRoomPayloadSchema = z
+  .object({
+    code: roomCodeSchema,
+    playerName: playerNameSchema.optional(),
+    sessionToken: sessionTokenSchema.optional(),
+  })
+  .refine(
+    (data) => data.playerName !== undefined || data.sessionToken !== undefined,
+    'Send a playerName to join, or a sessionToken to reconnect',
+  );
+
+// round:choose-stat. Who is choosing is never in the payload: the server knows the socket.
+export const chooseStatPayloadSchema = z.object({
+  stat: z.enum(STAT_KEYS),
 });

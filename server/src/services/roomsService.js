@@ -2,9 +2,10 @@ import { randomInt } from 'node:crypto';
 import { MAX_PLAYERS, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@pokemon-game/shared';
 
 const MAX_ROOMS = 500;
-const ROOM_LIFETIME_MS = 2 * 60 * 60 * 1000; // old rooms are cleaned up after 2 hours
+const ROOM_LIFETIME_MS = 2 * 60 * 60 * 1000; // rooms are cleaned up 2 hours after creation
 
-// Rooms live in memory only: code -> room. Step 5 adds players and games to a room.
+// Rooms live in memory only: code -> room.
+// room = { code, createdAt, status: 'lobby' | 'playing' | 'finished', hostId, players, game }
 const rooms = new Map();
 
 // crypto.randomInt is unpredictable, so codes cannot be guessed from earlier ones.
@@ -30,13 +31,17 @@ export function createRoom(now = Date.now()) {
   let code = makeCode();
   while (rooms.has(code)) code = makeCode();
 
-  const room = { code, createdAt: now, status: 'lobby', players: [] };
+  const room = { code, createdAt: now, status: 'lobby', hostId: null, players: [], game: null };
   rooms.set(code, room);
   return room;
 }
 
 export function findRoom(code) {
   return rooms.get(code) ?? null;
+}
+
+export function deleteRoom(code) {
+  rooms.delete(code);
 }
 
 // What the REST API may show about a room. Players' private data is never included.

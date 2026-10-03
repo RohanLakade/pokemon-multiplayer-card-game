@@ -1,15 +1,19 @@
 import { loadConfig } from './config/env.js';
-import { createApp } from './app.js';
+import { createHttpServer } from './createHttpServer.js';
 import { getAllCards } from './services/cardsService.js';
 
 const config = loadConfig();
 
 // Load cards.json now, so a missing file stops the server at startup, not on the first request
-await getAllCards();
+const cards = await getAllCards();
 
-const app = createApp(config);
+const { httpServer } = createHttpServer(config, cards);
 
-app.listen(config.port, (error) => {
-  if (error) throw error;
+httpServer.on('error', (error) => {
+  console.error(`Could not start the server: ${error.message}`);
+  process.exit(1);
+});
+
+httpServer.listen(config.port, () => {
   console.log(`Server listening on port ${config.port}`);
 });

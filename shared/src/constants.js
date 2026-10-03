@@ -14,3 +14,8 @@ export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 // Paging for GET /api/cards
 export const DEFAULT_CARDS_LIMIT = 20;
 export const MAX_CARDS_LIMIT = 100;
+
+// Player names, and session tokens (32 random bytes written as 64 hex characters)
+export const PLAYER_NAME_MIN_LENGTH = 2;
+export const PLAYER_NAME_MAX_LENGTH = 20;
+export const SESSION_TOKEN_LENGTH = 64;
