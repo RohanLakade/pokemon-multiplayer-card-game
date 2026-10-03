@@ -4,6 +4,7 @@ import Layout from './components/Layout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LobbyPage from './pages/LobbyPage.jsx';
 import GamePage from './pages/GamePage.jsx';
+import ResultPage from './pages/ResultPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { useSocketEvents } from './hooks/useSocketEvents.js';
 
@@ -19,6 +20,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/lobby/:code" element={<LobbyPage />} />
           <Route path="/game/:code" element={<GamePage />} />
+          <Route path="/result/:code" element={<ResultPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

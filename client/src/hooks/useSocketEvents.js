@@ -38,8 +38,9 @@ export function useSocketEvents() {
       },
 
       'game:started': ({ game }) => {
-        dispatch(roomStatusChanged('playing'));
+        // Store the game FIRST: changing the room status sends the lobby to the game screen
         dispatch(gameStarted({ game }));
+        dispatch(roomStatusChanged('playing'));
       },
 
       'round:started': (payload) => dispatch(roundStarted(payload)),
