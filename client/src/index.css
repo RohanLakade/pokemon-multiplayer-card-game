@@ -1,1 +1,70 @@
-/* Tailwind CSS v4 is added here in Step 6. */
+@import 'tailwindcss';
+
+/* Tailwind v4 reads design tokens from here: every --color-* becomes classes like
+   bg-ink or text-stat-hp, and every --animate-* becomes a class like animate-pop-in. */
+@theme {
+  /* Page and panel colors */
+  --color-ink: #0b1020;
+  --color-panel: #151b31;
+  --color-panel-light: #1f2747;
+  --color-accent: #facc15;
+
+  /* One color per card stat */
+  --color-stat-hp: #ef4444;
+  --color-stat-attack: #f97316;
+  --color-stat-defense: #eab308;
+  --color-stat-special-attack: #3b82f6;
+  --color-stat-special-defense: #22c55e;
+  --color-stat-speed: #ec4899;
+  --color-stat-rank: #06b6d4;
+
+  /* Card categories */
+  --color-category-base: #64748b;
+  --color-category-mega: #a855f7;
+  --color-category-regional: #10b981;
+  --color-category-gigantamax: #f43f5e;
+
+  /* Animations */
+  --animate-card-flip: card-flip 0.6s ease-out;
+  --animate-pop-in: pop-in 0.25s ease-out;
+
+  @keyframes card-flip {
+    from {
+      transform: rotateY(90deg);
+      opacity: 0;
+    }
+    to {
+      transform: rotateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background-color: var(--color-ink);
+  }
+}
+
+/* Respect people who turn animations off in their system settings */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
