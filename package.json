@@ -14,6 +14,7 @@
   },
   "scripts": {
     "dev:client": "npm run dev --workspace @pokemon-game/client",
+    "dev:server": "npm run dev --workspace @pokemon-game/server",
     "build:client": "npm run build --workspace @pokemon-game/client",
     "build:cards": "npm run build:cards --workspace @pokemon-game/scripts",
     "test": "vitest run",
