@@ -1,14 +1,7 @@
 import { MIN_PLAYERS, chooseStatPayloadSchema } from '@pokemon-game/shared';
-import {
-  createGame,
-  chooseStat,
-  playCard,
-  getPublicState,
-  getPrivateView,
-} from '../services/gameService.js';
+import { getPrivateView } from '../services/gameService.js';
 import { GameRuleError } from '../services/gameErrors.js';
 import { getContext } from './context.js';
-import { emitToEachPlayer, sendRoundStarted } from './emitters.js';
 
 function requireGame(room) {
   if (!room.game) {
@@ -16,15 +9,9 @@ function requireGame(room) {
   }
 }
 
-function toScores(game) {
-  return getPublicState(game).players.map(({ id, name, roundWins }) => ({
-    playerId: id,
-    name,
-    roundWins,
-  }));
-}
-
-export function registerGameHandlers({ io, socket, on, cards }) {
+// These handlers only check who is asking and whether it is allowed.
+// Running the game (events, scoring, the turn timer) is the job of "flow" (gameFlow.js).
+export function registerGameHandlers({ io, socket, on, cards, flow }) {
   on('game:start', {}, () => {
     const { room, player } = getContext(socket);
 
@@ -38,14 +25,7 @@ export function registerGameHandlers({ io, socket, on, cards }) {
       throw new GameRuleError('NOT_ENOUGH_PLAYERS', `At least ${MIN_PLAYERS} players are needed`);
     }
 
-    room.game = createGame(
-      room.players.map(({ id, name }) => ({ id, name })),
-      cards,
-    );
-    room.status = 'playing';
-
-    emitToEachPlayer(io, room, 'game:started', () => ({ game: getPublicState(room.game) }));
-    sendRoundStarted(io, room);
+    flow.startGame(io, room, cards);
     return {};
   });
 
@@ -53,18 +33,7 @@ export function registerGameHandlers({ io, socket, on, cards }) {
     const { room, player } = getContext(socket);
     requireGame(room);
 
-    // chooseStat checks that this player is the leader and that the stat is allowed
-    const { card } = chooseStat(room.game, player.id, stat);
-
-    // The leader's card is now revealed to everyone; each player gets their updated options
-    emitToEachPlayer(io, room, 'round:stat-chosen', (member) => ({
-      round: room.game.round,
-      leaderId: player.id,
-      stat,
-      card,
-      you: getPrivateView(room.game, member.id),
-    }));
-
+    flow.handleChooseStat(io, room, player, stat);
     return { you: getPrivateView(room.game, player.id) };
   });
 
@@ -72,29 +41,7 @@ export function registerGameHandlers({ io, socket, on, cards }) {
     const { room, player } = getContext(socket);
     requireGame(room);
 
-    const round = room.game.round; // read before playing: a finished round moves the game on
-    const { card, result, finalResult } = playCard(room.game, player.id);
-
-    emitToEachPlayer(io, room, 'round:card-played', () => ({
-      round,
-      playerId: player.id,
-      card,
-    }));
-
-    if (result) {
-      emitToEachPlayer(io, room, 'round:result', () => ({
-        ...result,
-        scores: toScores(room.game),
-      }));
-
-      if (finalResult) {
-        room.status = 'finished';
-        emitToEachPlayer(io, room, 'game:over', () => finalResult);
-      } else {
-        sendRoundStarted(io, room);
-      }
-    }
-
+    flow.handlePlayCard(io, room, player);
     return { you: getPrivateView(room.game, player.id) };
   });
 }

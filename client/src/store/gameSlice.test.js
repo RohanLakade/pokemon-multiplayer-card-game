@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import gameReducer, {
   gameStarted,
+  gameSynced,
   roundStarted,
   statChosen,
   cardPlayed,
@@ -36,6 +37,7 @@ function startedAsLeader() {
       round: 1,
       totalRounds: 20,
       leaderId: 'p1',
+      turnSecondsLeft: 30,
       you: { currentCard: makeCard(1, 'Bulbasaur'), canChooseStat: true, canPlayCard: false },
     }),
   );
@@ -60,6 +62,7 @@ describe('gameSlice', () => {
         leaderId: 'p1',
         stat: 'attack',
         card: makeCard(1, 'Bulbasaur'),
+        turnSecondsLeft: 29,
         you: { currentCard: null, canChooseStat: false, canPlayCard: false },
       }),
     );
@@ -79,6 +82,27 @@ describe('gameSlice', () => {
 
     expect(state.playedCards).toHaveLength(1);
     expect(state.players[1].hasPlayed).toBe(true);
+  });
+
+  it('keeps the time left that the server reported for each step', () => {
+    let state = startedAsLeader();
+    expect(state.turnSecondsLeft).toBe(30);
+
+    state = gameReducer(
+      state,
+      statChosen({
+        round: 1,
+        leaderId: 'p1',
+        stat: 'speed',
+        card: makeCard(1, 'Bulbasaur'),
+        turnSecondsLeft: 27,
+        you: { currentCard: null, canChooseStat: false, canPlayCard: false },
+      }),
+    );
+    expect(state.turnSecondsLeft).toBe(27);
+
+    state = gameReducer(state, gameOver({ winnerIds: ['p1'], scores: [] }));
+    expect(state.turnSecondsLeft).toBeNull();
   });
 
   it('keeps the scored round for the result dialog until it is dismissed', () => {
@@ -110,6 +134,22 @@ describe('gameSlice', () => {
     expect(state.finalResult.winnerIds).toEqual(['p2']);
     expect(state.canChooseStat).toBe(false);
     expect(state.myCard).toBeNull();
+  });
+
+  it('rebuilds the whole game from a full room state after reconnecting', () => {
+    const roomState = {
+      game: { ...publicGame, round: 7, phase: 'playing-cards', chosenStat: 'speed' },
+      private: { currentCard: makeCard(9, 'Blastoise'), canChooseStat: false, canPlayCard: true },
+      turnSecondsLeft: 12,
+      finalResult: null,
+    };
+    const state = gameReducer(undefined, gameSynced(roomState));
+
+    expect(state.round).toBe(7);
+    expect(state.chosenStat).toBe('speed');
+    expect(state.myCard.displayName).toBe('Blastoise');
+    expect(state.canPlayCard).toBe(true);
+    expect(state.turnSecondsLeft).toBe(12);
   });
 
   it('goes back to the start when reset', () => {

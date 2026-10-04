@@ -15,12 +15,17 @@ import { emitToEachPlayer, sendRoomState } from './emitters.js';
 // Normal mistakes (room full, name taken) do not.
 const COUNTED_FAILURES = new Set(['ROOM_NOT_FOUND', 'VALIDATION_ERROR', 'INVALID_SESSION']);
 
-// The same player is back (after a lost connection, or in a second tab).
+// The same player is back (after a refresh, a lost connection, or in a second tab).
 function reconnect(io, room, sessionToken, socket) {
   const { player, previousSocketId } = reconnectPlayer(room, sessionToken, socket.id);
 
-  // Close the old connection if it is still open: only one connection may own a player
-  const oldSocket = previousSocketId ? io.sockets.sockets.get(previousSocketId) : null;
+  // Close the old connection if it is still open: only one connection may own a player.
+  // The same socket joining twice must never close itself.
+  const oldSocket =
+    previousSocketId && previousSocketId !== socket.id
+      ? io.sockets.sockets.get(previousSocketId)
+      : null;
+
   if (oldSocket) {
     oldSocket.emit('error', {
       code: 'SESSION_REPLACED',
@@ -34,7 +39,7 @@ function reconnect(io, room, sessionToken, socket) {
 }
 
 // A player leaves for good (lobby) or drops out for now (game in progress).
-function leaveRoom(io, socket, room, player) {
+function leaveRoom(io, socket, room, player, flow) {
   socket.data.roomCode = null;
   socket.data.playerId = null;
 
@@ -49,7 +54,7 @@ function leaveRoom(io, socket, room, player) {
     return;
   }
 
-  // During a game the slot is kept, so the player can return with their session token
+  // During a game the seat is kept, so the player can return with their session token
   markDisconnected(player);
 
   if (room.status === 'finished' && room.players.every((member) => !member.connected)) {
@@ -59,9 +64,11 @@ function leaveRoom(io, socket, room, player) {
 
   emitToEachPlayer(io, room, 'player:disconnected', () => ({ playerId: player.id }));
   sendRoomState(io, room);
+  // The game must not wait for someone who is gone: play their card, or shorten the clock
+  flow.handlePlayerAway(io, room);
 }
 
-export function registerRoomHandlers({ io, socket, on, failedJoins, clientIp }) {
+export function registerRoomHandlers({ io, socket, on, failedJoins, clientIp, flow }) {
   on(
     'room:join',
     {
@@ -91,6 +98,9 @@ export function registerRoomHandlers({ io, socket, on, failedJoins, clientIp }) 
       socket.data.playerId = player.id;
       sendRoomState(io, room);
 
+      // A returning player may be the one the game was waiting for (or the first one back)
+      if (payload.sessionToken) flow.handlePlayerBack(io, room);
+
       // The session token is private, so it only goes back to this player, in the acknowledgement
       return { playerId: player.id, sessionToken: player.sessionToken, roomCode: room.code };
     },
@@ -98,7 +108,7 @@ export function registerRoomHandlers({ io, socket, on, failedJoins, clientIp }) 
 
   on('room:leave', {}, () => {
     const { room, player } = getContext(socket);
-    leaveRoom(io, socket, room, player);
+    leaveRoom(io, socket, room, player, flow);
     return {};
   });
 
@@ -110,6 +120,6 @@ export function registerRoomHandlers({ io, socket, on, failedJoins, clientIp }) 
     // Ignore sockets that never joined, already left, or were replaced by a newer connection
     if (!room || !player || player.socketId !== socket.id) return;
 
-    leaveRoom(io, socket, room, player);
+    leaveRoom(io, socket, room, player, flow);
   });
 }

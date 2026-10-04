@@ -1,7 +1,8 @@
 import { Link } from 'react-router';
 import { useSelector } from 'react-redux';
 
-// Shown when the connection to the server drops. (Automatic rejoining is added in Step 7.)
+// Shown while the connection to the server is down. Socket.IO keeps trying to reconnect,
+// and when it succeeds the player is seated again automatically (useSessionRestore).
 function ConnectionBanner() {
   const connection = useSelector((state) => state.room.connection);
 
@@ -10,9 +11,9 @@ function ConnectionBanner() {
   return (
     <div role="status" className="border-b border-amber-400/40 bg-amber-950 text-amber-100">
       <p className="mx-auto max-w-5xl px-4 py-3">
-        The connection to the game server was lost.{' '}
+        Connection lost. Trying to reconnect…{' '}
         <Link to="/" className="underline">
-          Back to the home page
+          Leave and go home
         </Link>
       </p>
     </div>

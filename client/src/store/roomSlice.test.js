@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import roomReducer, {
   joined,
+  restoreFinished,
   roomStateReceived,
   playerConnectionChanged,
   noticeShown,
@@ -71,5 +72,12 @@ describe('roomSlice', () => {
 
     expect(state.code).toBeNull();
     expect(state.players).toEqual([]);
+  });
+
+  it('stops waiting for a restored seat when the restore is finished or the player leaves', () => {
+    const waiting = { ...roomReducer(undefined, { type: 'unknown' }), restoring: true };
+
+    expect(roomReducer(waiting, restoreFinished()).restoring).toBe(false);
+    expect(roomReducer(waiting, roomLeft()).restoring).toBe(false);
   });
 });

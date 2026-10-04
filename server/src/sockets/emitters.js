@@ -1,6 +1,7 @@
 import { ROUNDS_PER_GAME } from '@pokemon-game/shared';
 import { getPublicState, getPrivateView, getFinalResult } from '../services/gameService.js';
 import { toPublicPlayer } from '../services/lobbyService.js';
+import { getTurnSecondsLeft } from '../services/turnService.js';
 
 // Sends one event to every connected player in the room, except "exceptPlayerId" if given.
 // buildPayload(player) lets each player receive their own private data.
@@ -25,6 +26,7 @@ export function buildRoomState(room, playerId) {
     game: room.game ? getPublicState(room.game) : null,
     private: room.game ? getPrivateView(room.game, playerId) : null,
     finalResult: room.status === 'finished' ? getFinalResult(room.game) : null,
+    turnSecondsLeft: getTurnSecondsLeft(room),
   };
 }
 
@@ -40,6 +42,7 @@ export function sendRoundStarted(io, room) {
     round: game.round,
     totalRounds: ROUNDS_PER_GAME,
     leaderId: game.leaderId,
+    turnSecondsLeft: getTurnSecondsLeft(room),
     you: getPrivateView(game, player.id),
   }));
 }

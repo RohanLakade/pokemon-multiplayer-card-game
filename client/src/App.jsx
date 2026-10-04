@@ -6,11 +6,14 @@ import LobbyPage from './pages/LobbyPage.jsx';
 import GamePage from './pages/GamePage.jsx';
 import ResultPage from './pages/ResultPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import { useSessionRestore } from './hooks/useSessionRestore.js';
 import { useSocketEvents } from './hooks/useSocketEvents.js';
 
 function App() {
   // Listens to the server once, for the whole app, and feeds the Redux store
   useSocketEvents();
+  // Takes the player's seat again after a refresh or a dropped connection
+  useSessionRestore();
 
   return (
     <ErrorBoundary>

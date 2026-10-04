@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router';
 import { STATS } from '@pokemon-game/shared';
 import Button from '../components/Button.jsx';
+import Countdown from '../components/Countdown.jsx';
 import PageMeta from '../components/PageMeta.jsx';
 import PlayedCards from '../components/PlayedCards.jsx';
 import PokemonCard from '../components/PokemonCard.jsx';
@@ -35,6 +36,7 @@ function GamePage() {
     myCard,
     canChooseStat,
     canPlayCard,
+    turnSecondsLeft,
     lastResult,
     finalResult,
   } = game;
@@ -62,7 +64,7 @@ function GamePage() {
   if (!isInRoom || phase === null) return null;
 
   function handleLeave() {
-    if (window.confirm('Leave this game? Your cards stay in the game, and you cannot rejoin.')) {
+    if (window.confirm('Leave this game? Your seat stays open for a short while.')) {
       leaveRoom(dispatch);
       navigate('/');
     }
@@ -104,10 +106,14 @@ function GamePage() {
         />
       </section>
 
-      {/* role="status" makes screen readers announce each change of whose turn it is */}
-      <p role="status" className="mt-6 rounded-xl bg-panel-light px-4 py-3 text-lg font-semibold">
-        {turnMessage}
-      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-panel-light px-4 py-3">
+        {/* role="status" makes screen readers announce each change of whose turn it is */}
+        <p role="status" className="text-lg font-semibold">
+          {turnMessage}
+        </p>
+        {/* A new key for each step makes the countdown start again from the server's time */}
+        <Countdown key={`${round}-${phase}`} seconds={turnSecondsLeft} />
+      </div>
 
       <section aria-labelledby="table-heading" className="mt-6">
         <h2 id="table-heading" className="mb-3 text-xl font-bold">

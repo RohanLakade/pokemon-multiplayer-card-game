@@ -1,7 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { getSessionToRestore } from '../utils/session.js';
 
-const initialState = {
+const emptyState = {
   connection: 'idle', // 'idle' | 'connecting' | 'connected' | 'lost'
+  restoring: false, // true while we take our seat again after a page refresh
   code: null,
   playerId: null,
   sessionToken: null, // private: only this browser has it
@@ -11,12 +13,19 @@ const initialState = {
   notice: null, // a message shown at the top of the page, such as an error
 };
 
+// On a page load we may be about to rejoin a saved seat, so screens should wait
+const initialState = { ...emptyState, restoring: getSessionToRestore() !== null };
+
 const roomSlice = createSlice({
   name: 'room',
   initialState,
   reducers: {
     connectionChanged(state, action) {
       state.connection = action.payload;
+    },
+
+    restoreFinished(state) {
+      state.restoring = false;
     },
 
     // The server's answer to room:join
@@ -56,13 +65,14 @@ const roomSlice = createSlice({
     },
 
     roomLeft() {
-      return initialState;
+      return emptyState;
     },
   },
 });
 
 export const {
   connectionChanged,
+  restoreFinished,
   joined,
   roomStateReceived,
   roomStatusChanged,

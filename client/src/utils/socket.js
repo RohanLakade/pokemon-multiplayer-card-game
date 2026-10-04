@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 import { SERVER_URL } from './config.js';
 
 // One socket for the whole app. autoConnect is off: we connect only when a player joins a room.
+// After an unexpected drop, Socket.IO reconnects by itself (with growing pauses between tries).
 export const socket = io(SERVER_URL, { autoConnect: false });
 
 // Connects and waits until the connection is open (or fails).
@@ -30,7 +31,8 @@ export function connectSocket() {
 }
 
 // Sends an event and waits for the server's answer, which looks like { ok: true, ... }.
-// Rejects with the server's message when ok is false, or after 5 seconds without an answer.
+// Rejects with the server's message (and its error code) when ok is false,
+// or after 5 seconds without an answer.
 export function sendEvent(eventName, payload = {}) {
   return new Promise((resolve, reject) => {
     socket.timeout(5000).emit(eventName, payload, (timeoutError, response) => {
@@ -39,7 +41,7 @@ export function sendEvent(eventName, payload = {}) {
         return;
       }
       if (!response.ok) {
-        reject(new Error(response.error.message));
+        reject(Object.assign(new Error(response.error.message), { code: response.error.code }));
         return;
       }
       resolve(response);

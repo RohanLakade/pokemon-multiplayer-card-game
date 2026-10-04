@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import { Link, Outlet, useLocation } from 'react-router';
 import ConnectionBanner from './ConnectionBanner.jsx';
 import Footer from './Footer.jsx';
+import LoadingState from './LoadingState.jsx';
 import NoticeBanner from './NoticeBanner.jsx';
 
 // The frame around every page: skip link, header, banners, main content and footer.
 function Layout() {
   const { pathname } = useLocation();
+  const restoring = useSelector((state) => state.room.restoring);
   const mainRef = useRef(null);
   const isFirstRender = useRef(true);
 
@@ -49,7 +52,9 @@ function Layout() {
         tabIndex={-1}
         className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 focus:outline-none"
       >
-        <Outlet />
+        {/* While we take a saved seat again after a refresh, no page is shown, so no page
+            can wrongly send the player home before the server has answered */}
+        {restoring ? <LoadingState message="Reconnecting to your game…" /> : <Outlet />}
       </main>
 
       <Footer />

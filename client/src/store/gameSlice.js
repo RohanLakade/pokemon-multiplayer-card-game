@@ -12,6 +12,7 @@ const initialState = {
   myCard: null, // this player's own current card (the server never sends anyone else's)
   canChooseStat: false,
   canPlayCard: false,
+  turnSecondsLeft: null, // seconds the server's turn clock had left when the last event arrived
   lastResult: null, // the round that was just scored; the screen shows it until dismissed
   finalResult: null, // { winnerIds, scores } once the game is over
 };
@@ -49,22 +50,24 @@ const gameSlice = createSlice({
     },
 
     roundStarted(state, action) {
-      const { round, totalRounds, leaderId, you } = action.payload;
+      const { round, totalRounds, leaderId, turnSecondsLeft, you } = action.payload;
       state.phase = 'choosing-stat';
       state.round = round;
       state.totalRounds = totalRounds;
       state.leaderId = leaderId;
       state.chosenStat = null;
       state.playedCards = [];
+      state.turnSecondsLeft = turnSecondsLeft ?? null;
       for (const player of state.players) player.hasPlayed = false;
       applyPrivateView(state, you);
     },
 
     statChosen(state, action) {
-      const { leaderId, stat, card, you } = action.payload;
+      const { leaderId, stat, card, turnSecondsLeft, you } = action.payload;
       state.phase = 'playing-cards';
       state.chosenStat = stat;
       state.playedCards = [{ playerId: leaderId, card }];
+      state.turnSecondsLeft = turnSecondsLeft ?? null;
       markPlayed(state, leaderId);
       applyPrivateView(state, you);
     },
@@ -94,6 +97,7 @@ const gameSlice = createSlice({
       state.myCard = null;
       state.canChooseStat = false;
       state.canPlayCard = false;
+      state.turnSecondsLeft = null;
     },
 
     // Rebuilds everything from a full room:state (used when a player comes back)
@@ -101,6 +105,7 @@ const gameSlice = createSlice({
       const roomState = action.payload;
       applyPublicState(state, roomState.game);
       if (roomState.private) applyPrivateView(state, roomState.private);
+      state.turnSecondsLeft = roomState.turnSecondsLeft ?? null;
       state.finalResult = roomState.finalResult;
     },
 
