@@ -64,7 +64,8 @@ function leaveRoom(io, socket, room, player, flow) {
 
   emitToEachPlayer(io, room, 'player:disconnected', () => ({ playerId: player.id }));
   sendRoomState(io, room);
-  // The game must not wait for someone who is gone: play their card, or shorten the clock
+  // Tell the game flow: it plays the card of an offline player (a card needs no decision).
+  // An offline leader is not skipped: they keep their full time to come back and choose.
   flow.handlePlayerAway(io, room);
 }
 

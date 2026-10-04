@@ -20,7 +20,6 @@ export const PLAYER_NAME_MIN_LENGTH = 2;
 export const PLAYER_NAME_MAX_LENGTH = 20;
 export const SESSION_TOKEN_LENGTH = 64;
 
-// Turn timer. Each step (choosing a stat, then playing the cards) gets TURN_SECONDS.
-// When the players we are waiting for are all offline, we wait only AWAY_TURN_SECONDS.
+// Turn timer: each step (choosing a stat, then playing the cards) gets this many seconds,
+// whether the player is online or not
 export const TURN_SECONDS = 30;
-export const AWAY_TURN_SECONDS = 5;

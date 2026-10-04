@@ -10,6 +10,11 @@ import { noticeShown, selectIsHost } from '../store/roomSlice.js';
 import { leaveRoom } from '../utils/roomActions.js';
 import { sendEvent } from '../utils/socket.js';
 
+const COPIED_MESSAGES = {
+  code: 'Room code copied',
+  link: 'Invite link copied',
+};
+
 function LobbyPage() {
   const { code = '' } = useParams();
   const dispatch = useDispatch();
@@ -17,7 +22,7 @@ function LobbyPage() {
   const isInRoom = useRoomGuard(code);
   const { players, hostId, playerId, status } = useSelector((state) => state.room);
   const isHost = useSelector(selectIsHost);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(null); // 'code', 'link' or null
 
   // When the host starts the game, everybody moves to the game screen
   useEffect(() => {
@@ -26,13 +31,14 @@ function LobbyPage() {
 
   if (!isInRoom) return null; // useRoomGuard is already sending this visitor to the home page
 
-  async function copyInviteLink() {
+  // Copies the room code alone, or the full invite link, depending on the button
+  async function copyText(text, kind) {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied((current) => (current === kind ? null : current)), 2000);
     } catch {
-      dispatch(noticeShown(`Could not copy the link. Share the room code instead: ${code}`));
+      dispatch(noticeShown(`Could not copy. Share the room code instead: ${code}`));
     }
   }
 
@@ -62,11 +68,21 @@ function LobbyPage() {
         <div className="mt-6 rounded-2xl border border-white/10 bg-panel p-6 text-center">
           <p className="text-sm text-slate-400">Room code</p>
           <p className="mt-1 font-mono text-4xl font-bold tracking-[0.3em] text-accent">{code}</p>
-          <Button variant="secondary" onClick={copyInviteLink} className="mt-4">
-            Copy invite link
-          </Button>
+
+          <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
+            <Button variant="secondary" onClick={() => copyText(code, 'code')}>
+              Copy code
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => copyText(`${window.location.origin}/?code=${code}`, 'link')}
+            >
+              Copy invite link
+            </Button>
+          </div>
+
           <p role="status" className="mt-2 h-5 text-sm text-emerald-300">
-            {copied ? 'Invite link copied' : ''}
+            {COPIED_MESSAGES[copied] ?? ''}
           </p>
         </div>
 

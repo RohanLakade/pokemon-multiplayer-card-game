@@ -1,4 +1,4 @@
-import { AWAY_TURN_SECONDS, STAT_KEYS, TURN_SECONDS } from '@pokemon-game/shared';
+import { STAT_KEYS, TURN_SECONDS } from '@pokemon-game/shared';
 import {
   PHASES,
   chooseStat,
@@ -28,27 +28,16 @@ function toScores(game) {
 
 // Runs a game: applies moves, sends the events, and keeps the turn clock going.
 // Every move, whether a player made it or the timer made it for them, goes through here.
-export function createGameFlow({
-  turnSeconds = TURN_SECONDS,
-  awaySeconds = AWAY_TURN_SECONDS,
-} = {}) {
+export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
   const turnMs = turnSeconds * 1000;
-  const awayMs = awaySeconds * 1000;
 
   function isAway(room, playerId) {
     return !findPlayer(room, playerId)?.connected;
   }
 
-  // Players who are here get the full turn. If everyone we wait for is offline, the wait is short.
-  function getTurnMs(room) {
-    const pending = getPendingPlayerIds(room.game);
-    const everyoneAway = pending.length > 0 && pending.every((id) => isAway(room, id));
-    return everyoneAway ? awayMs : turnMs;
-  }
-
-  // Makes sure a clock is running for the current step of the game.
-  // Calling it again during the same step keeps the running clock (so a flaky connection
-  // cannot stretch everyone's time), except that it shortens the clock when only away players remain.
+  // Makes sure a clock is running for the current step of the game. Every step gets the full
+  // time. If the step already has a running clock it is left alone, so nobody can stretch or
+  // shorten it by disconnecting and reconnecting.
   function startTurn(io, room) {
     const { game } = room;
 
@@ -58,12 +47,9 @@ export function createGameFlow({
     }
 
     const step = `${game.round}:${game.phase}`;
-    const ms = getTurnMs(room);
-    const msLeft = room.turnTimer ? room.turnEndsAt - Date.now() : Infinity;
+    if (room.turnStep === step && room.turnTimer) return;
 
-    if (room.turnStep === step && msLeft <= ms) return;
-
-    setTurnTimer(room, step, ms, () => {
+    setTurnTimer(room, step, turnMs, () => {
       try {
         handleTimeout(io, room);
       } catch (error) {
@@ -93,7 +79,7 @@ export function createGameFlow({
 
   function performChooseStat(io, room, player, stat) {
     const { card } = chooseStat(room.game, player.id, stat);
-    startTurn(io, room); // the step changed: now the other players are being waited for
+    startTurn(io, room); // the step changed: now the other players get a fresh full clock
 
     emitToEachPlayer(io, room, 'round:stat-chosen', (member) => ({
       round: room.game.round,
@@ -132,6 +118,7 @@ export function createGameFlow({
   }
 
   // Playing a card involves no decision, so for a player who is offline we simply play it.
+  // (Choosing a stat DOES involve a decision, so an offline leader is never skipped this way.)
   function playForAwayPlayers(io, room) {
     while (room.game.phase === PHASES.PLAYING_CARDS) {
       const awayId = getPendingPlayerIds(room.game).find((id) => isAway(room, id));
@@ -174,14 +161,17 @@ export function createGameFlow({
         return;
       }
 
+      // An offline player's card is played at once. An offline leader keeps the full clock,
+      // so they still have their time to come back and choose a stat.
       playForAwayPlayers(io, room);
-      startTurn(io, room);
     },
 
-    // A player came back (this also restarts the clock if the game was frozen)
+    // A player came back
     handlePlayerBack(io, room) {
       if (!room.game || room.game.phase === PHASES.FINISHED) return;
-      startTurn(io, room);
+
+      startTurn(io, room); // restarts the clock (with the full time) if the game was frozen
+      playForAwayPlayers(io, room); // anyone else who is still offline plays their card now
     },
   };
 }
