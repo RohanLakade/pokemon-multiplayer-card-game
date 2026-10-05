@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  DECK_SIZES,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   DEFAULT_CARDS_LIMIT,
@@ -67,7 +68,20 @@ export const joinRoomPayloadSchema = z
     'Send a playerName to join, or a sessionToken to reconnect',
   );
 
+// room:set-deck-size. Only the host may send it, and only in the lobby.
+export const setDeckSizePayloadSchema = z.object({
+  deckSize: z
+    .number()
+    .int()
+    .refine((value) => DECK_SIZES.includes(value), `Choose one of: ${DECK_SIZES.join(', ')}`),
+});
+
 // round:choose-stat. Who is choosing is never in the payload: the server knows the socket.
 export const chooseStatPayloadSchema = z.object({
   stat: z.enum(STAT_KEYS),
+});
+
+// round:choose-card. The card must be in the sender's own hand, which the server checks.
+export const chooseCardPayloadSchema = z.object({
+  cardId: z.number().int().positive(),
 });

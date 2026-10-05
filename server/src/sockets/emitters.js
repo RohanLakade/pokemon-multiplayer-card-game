@@ -1,5 +1,4 @@
-import { ROUNDS_PER_GAME } from '@pokemon-game/shared';
-import { getPublicState, getPrivateView, getFinalResult } from '../services/gameService.js';
+import { getPublicState, getPrivateView, getFinalResult } from '../services/matchService.js';
 import { toPublicPlayer } from '../services/lobbyService.js';
 import { getTurnSecondsLeft } from '../services/turnService.js';
 
@@ -21,6 +20,7 @@ export function buildRoomState(room, playerId) {
     code: room.code,
     status: room.status,
     hostId: room.hostId,
+    deckSize: room.deckSize,
     players: room.players.map(toPublicPlayer),
     you: { playerId },
     game: room.game ? getPublicState(room.game) : null,
@@ -34,13 +34,13 @@ export function sendRoomState(io, room) {
   emitToEachPlayer(io, room, 'room:state', (player) => buildRoomState(room, player.id));
 }
 
-// A new round begins. Each player receives only THEIR OWN current card.
+// A new round begins. Each player receives only THEIR OWN hand.
 export function sendRoundStarted(io, room) {
   const { game } = room;
 
   emitToEachPlayer(io, room, 'round:started', (player) => ({
     round: game.round,
-    totalRounds: ROUNDS_PER_GAME,
+    totalRounds: game.deckSize,
     leaderId: game.leaderId,
     turnSecondsLeft: getTurnSecondsLeft(room),
     you: getPrivateView(game, player.id),

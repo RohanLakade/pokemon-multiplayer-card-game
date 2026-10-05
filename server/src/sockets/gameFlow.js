@@ -1,20 +1,17 @@
 import { STAT_KEYS, TURN_SECONDS } from '@pokemon-game/shared';
 import {
   PHASES,
+  chooseCard,
   chooseStat,
   createGame,
+  getPendingPlayerIds,
   getPrivateView,
   getPublicState,
-  playCard,
-} from '../services/gameService.js';
+  getRandomCardId,
+} from '../services/matchService.js';
 import { findPlayer } from '../services/lobbyService.js';
 import { findRoom } from '../services/roomsService.js';
-import {
-  clearTurnTimer,
-  getPendingPlayerIds,
-  getTurnSecondsLeft,
-  setTurnTimer,
-} from '../services/turnService.js';
+import { clearTurnTimer, getTurnSecondsLeft, setTurnTimer } from '../services/turnService.js';
 import { pickRandom } from '../utils/random.js';
 import { emitToEachPlayer, sendRoundStarted } from './emitters.js';
 
@@ -30,10 +27,6 @@ function toScores(game) {
 // Every move, whether a player made it or the timer made it for them, goes through here.
 export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
   const turnMs = turnSeconds * 1000;
-
-  function isAway(room, playerId) {
-    return !findPlayer(room, playerId)?.connected;
-  }
 
   // Makes sure a clock is running for the current step of the game. Every step gets the full
   // time. If the step already has a running clock it is left alone, so nobody can stretch or
@@ -58,7 +51,8 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
     });
   }
 
-  // Time is up: choose a stat for a leader who did not, and play for everyone who did not play.
+  // Time is up: choose a stat for a leader who did not, and a random card for everyone who has
+  // not picked one yet. This is the same for players who are online and offline.
   function handleTimeout(io, room) {
     room.turnTimer = null; // this timer has fired
     if (findRoom(room.code) !== room) return;
@@ -68,42 +62,38 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
     if (game.phase === PHASES.CHOOSING_STAT) {
       const leader = findPlayer(room, game.leaderId);
       performChooseStat(io, room, leader, pickRandom(STAT_KEYS));
-    } else if (game.phase === PHASES.PLAYING_CARDS) {
+    } else if (game.phase === PHASES.CHOOSING_CARDS) {
       for (const playerId of getPendingPlayerIds(game)) {
-        performPlayCard(io, room, findPlayer(room, playerId));
+        const cardId = getRandomCardId(game, playerId);
+        performChooseCard(io, room, findPlayer(room, playerId), cardId);
       }
     }
-
-    playForAwayPlayers(io, room);
   }
 
   function performChooseStat(io, room, player, stat) {
-    const { card } = chooseStat(room.game, player.id, stat);
-    startTurn(io, room); // the step changed: now the other players get a fresh full clock
+    chooseStat(room.game, player.id, stat);
+    startTurn(io, room); // the step changed: everybody now gets a fresh full clock to pick a card
 
     emitToEachPlayer(io, room, 'round:stat-chosen', (member) => ({
       round: room.game.round,
       leaderId: player.id,
       stat,
-      card,
       turnSecondsLeft: getTurnSecondsLeft(room),
       you: getPrivateView(room.game, member.id),
     }));
   }
 
-  function performPlayCard(io, room, player) {
-    const round = room.game.round; // read before playing: a scored round moves the game on
-    const { card, result, finalResult } = playCard(room.game, player.id);
+  function performChooseCard(io, room, player, cardId) {
+    const round = room.game.round; // read before picking: a scored round moves the game on
+    const { result, finalResult } = chooseCard(room.game, player.id, cardId);
     startTurn(io, room); // a new round (or the end of the game) starts a new step
 
-    emitToEachPlayer(io, room, 'round:card-played', () => ({
-      round,
-      playerId: player.id,
-      card,
-    }));
+    // Everybody learns THAT this player picked, never WHICH card
+    emitToEachPlayer(io, room, 'round:card-picked', () => ({ round, playerId: player.id }));
 
     if (!result) return;
 
+    // The last pick arrived: all cards are revealed together
     emitToEachPlayer(io, room, 'round:result', () => ({
       ...result,
       scores: toScores(room.game),
@@ -117,22 +107,12 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
     }
   }
 
-  // Playing a card involves no decision, so for a player who is offline we simply play it.
-  // (Choosing a stat DOES involve a decision, so an offline leader is never skipped this way.)
-  function playForAwayPlayers(io, room) {
-    while (room.game.phase === PHASES.PLAYING_CARDS) {
-      const awayId = getPendingPlayerIds(room.game).find((id) => isAway(room, id));
-      if (!awayId) return;
-
-      performPlayCard(io, room, findPlayer(room, awayId));
-    }
-  }
-
   return {
     startGame(io, room, cards) {
       room.game = createGame(
         room.players.map(({ id, name }) => ({ id, name })),
         cards,
+        room.deckSize,
       );
       room.status = 'playing';
 
@@ -143,27 +123,20 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
 
     handleChooseStat(io, room, player, stat) {
       performChooseStat(io, room, player, stat);
-      playForAwayPlayers(io, room);
     },
 
-    handlePlayCard(io, room, player) {
-      performPlayCard(io, room, player);
-      playForAwayPlayers(io, room);
+    handleChooseCard(io, room, player, cardId) {
+      performChooseCard(io, room, player, cardId);
     },
 
-    // A player just went offline
+    // A player just went offline. Their time keeps running: they may come back and choose.
     handlePlayerAway(io, room) {
       if (!room.game || room.game.phase === PHASES.FINISHED) return;
 
       // With nobody connected there is nobody to wait for or to play against: freeze the game
       if (room.players.every((player) => !player.connected)) {
         clearTurnTimer(room);
-        return;
       }
-
-      // An offline player's card is played at once. An offline leader keeps the full clock,
-      // so they still have their time to come back and choose a stat.
-      playForAwayPlayers(io, room);
     },
 
     // A player came back
@@ -171,7 +144,6 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
       if (!room.game || room.game.phase === PHASES.FINISHED) return;
 
       startTurn(io, room); // restarts the clock (with the full time) if the game was frozen
-      playForAwayPlayers(io, room); // anyone else who is still offline plays their card now
     },
   };
 }

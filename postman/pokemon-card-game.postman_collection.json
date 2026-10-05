@@ -211,7 +211,7 @@
               "  pm.expect(body.code).to.eql(pm.collectionVariables.get('roomCode'));",
               "  pm.expect(body.status).to.eql('lobby');",
               "  pm.expect(body.playerCount).to.eql(0);",
-              "  pm.expect(body.maxPlayers).to.eql(6);",
+              "  pm.expect(body.maxPlayers).to.eql(8);",
               "});"
             ]
           }

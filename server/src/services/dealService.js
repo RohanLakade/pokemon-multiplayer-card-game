@@ -1,5 +1,5 @@
 import { DECK_RECIPES, TIERS } from '@pokemon-game/shared';
-import { defaultRandom, shuffle } from '../utils/random.js';
+import { defaultRandom, pickRandom, shuffle } from '../utils/random.js';
 import { GameRuleError } from './gameErrors.js';
 
 // If the strongest and weakest deck differ by more than 6%, the cards are dealt again
@@ -13,6 +13,30 @@ function snakeIndex(position, playerCount) {
   return lap % 2 === 0 ? offset : playerCount - 1 - offset;
 }
 
+// Picks the cards of one tier for the whole game. The Pokémon are chosen first, so every Pokémon
+// has the same chance however many forms it has, then one random form of each is used.
+function pickTierCards(allCards, tier, needed, usedSpecies, random) {
+  const formsBySpecies = new Map();
+  for (const card of allCards) {
+    if (card.tier !== tier || usedSpecies.has(card.speciesId)) continue;
+
+    const forms = formsBySpecies.get(card.speciesId) ?? [];
+    forms.push(card);
+    formsBySpecies.set(card.speciesId, forms);
+  }
+
+  if (formsBySpecies.size < needed) {
+    throw new GameRuleError(
+      'NOT_ENOUGH_CARDS',
+      `There are not enough tier ${tier} cards for this game`,
+    );
+  }
+
+  return shuffle([...formsBySpecies.values()], random)
+    .slice(0, needed)
+    .map((forms) => pickRandom(forms, random));
+}
+
 // One attempt at dealing every player a deck that follows the recipe.
 function dealOnce(allCards, playerCount, recipe, random) {
   const usedSpecies = new Set();
@@ -20,25 +44,10 @@ function dealOnce(allCards, playerCount, recipe, random) {
 
   // Strongest tier first: it has the fewest cards, so it should choose first
   for (const tier of TIERS) {
-    const needed = recipe[tier] * playerCount;
-    const chosen = [];
+    const chosen = pickTierCards(allCards, tier, recipe[tier] * playerCount, usedSpecies, random);
 
-    for (const card of shuffle(
-      allCards.filter((candidate) => candidate.tier === tier),
-      random,
-    )) {
-      if (chosen.length === needed) break;
-      if (usedSpecies.has(card.speciesId)) continue; // one card per species in a game
-      usedSpecies.add(card.speciesId);
-      chosen.push(card);
-    }
-
-    if (chosen.length < needed) {
-      throw new GameRuleError(
-        'NOT_ENOUGH_CARDS',
-        `There are not enough tier ${tier} cards for this game`,
-      );
-    }
+    // One card per Pokémon species in a whole game
+    for (const card of chosen) usedSpecies.add(card.speciesId);
 
     // Best card first, dealt in snake order, so every deck gets a similar total
     chosen

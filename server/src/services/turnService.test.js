@@ -1,37 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  clearTurnTimer,
-  getPendingPlayerIds,
-  getTurnSecondsLeft,
-  setTurnTimer,
-} from './turnService.js';
-
-const players = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }];
-
-describe('getPendingPlayerIds', () => {
-  it('waits for the leader while a stat is being chosen', () => {
-    const game = { phase: 'choosing-stat', leaderId: 'p2', players, plays: [] };
-
-    expect(getPendingPlayerIds(game)).toEqual(['p2']);
-  });
-
-  it('waits for everyone who has not played yet', () => {
-    const game = {
-      phase: 'playing-cards',
-      leaderId: 'p2',
-      players,
-      plays: [{ playerId: 'p2' }],
-    };
-
-    expect(getPendingPlayerIds(game)).toEqual(['p1', 'p3']);
-  });
-
-  it('waits for nobody once the game is over', () => {
-    const game = { phase: 'finished', leaderId: 'p1', players, plays: [] };
-
-    expect(getPendingPlayerIds(game)).toEqual([]);
-  });
-});
+import { clearTurnTimer, getTurnSecondsLeft, setTurnTimer } from './turnService.js';
 
 describe('turn timer', () => {
   beforeEach(() => {
@@ -77,7 +45,7 @@ describe('turn timer', () => {
     const second = vi.fn();
 
     setTurnTimer(room, '1:choosing-stat', 1000, first);
-    setTurnTimer(room, '1:playing-cards', 1000, second);
+    setTurnTimer(room, '1:choosing-cards', 1000, second);
     vi.advanceTimersByTime(1000);
 
     expect(first).not.toHaveBeenCalled();

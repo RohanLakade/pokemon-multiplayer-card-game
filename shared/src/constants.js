@@ -1,13 +1,13 @@
 // Game rules that both the server and the client need to know.
 export const MIN_PLAYERS = 2;
-export const MAX_PLAYERS = 6;
+export const MAX_PLAYERS = 8;
 
-// The first version of the game (a fixed 20-card deck, no hand). They stay until the new
-// game logic replaces the old one (reply 2 of the redesign), then they are removed.
+// Left over from the first version of the game. Only the old client screens still use these,
+// and they are removed in reply 3 of the redesign.
 export const CARDS_PER_PLAYER = 20;
 export const ROUNDS_PER_GAME = CARDS_PER_PLAYER;
 
-// The new game: each player holds a hand of 5 cards, and the host chooses the deck size.
+// Each player holds a hand of 5 cards, and the host chooses the deck size.
 // The game lasts as many rounds as the deck has cards.
 export const HAND_SIZE = 5;
 export const DECK_SIZES = [10, 15, 20];
@@ -27,6 +27,6 @@ export const PLAYER_NAME_MIN_LENGTH = 2;
 export const PLAYER_NAME_MAX_LENGTH = 20;
 export const SESSION_TOKEN_LENGTH = 64;
 
-// Turn timer: each step (choosing a stat, then playing the cards) gets this many seconds,
-// whether the player is online or not
-export const TURN_SECONDS = 30;
+// Turn timer: each step (choosing a stat, then everyone choosing a card) gets this many
+// seconds, whether the player is online or not
+export const TURN_SECONDS = 20;

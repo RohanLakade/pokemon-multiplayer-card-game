@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { MAX_PLAYERS } from '@pokemon-game/shared';
 import { createApp } from './app.js';
 
 const CLIENT_ORIGIN = 'http://localhost:5173';
@@ -49,7 +50,7 @@ describe('REST API', () => {
       expect(body.offset).toBe(0);
       expect(body.cards).toHaveLength(20);
       expect(body.cards[0].id).toBe(1);
-      expect(body.total).toBeGreaterThanOrEqual(120);
+      expect(body.total).toBeGreaterThanOrEqual(160);
     });
 
     it('supports limit and offset', async () => {
@@ -101,7 +102,7 @@ describe('REST API', () => {
         code: created.body.code,
         status: 'lobby',
         playerCount: 0,
-        maxPlayers: 6,
+        maxPlayers: MAX_PLAYERS,
       });
     });
 

@@ -5,7 +5,9 @@ import {
   roomCodeSchema,
   playerNameSchema,
   joinRoomPayloadSchema,
+  setDeckSizePayloadSchema,
   chooseStatPayloadSchema,
+  chooseCardPayloadSchema,
 } from './schemas.js';
 
 describe('cardsQuerySchema', () => {
@@ -97,6 +99,17 @@ describe('joinRoomPayloadSchema', () => {
   });
 });
 
+describe('setDeckSizePayloadSchema', () => {
+  it('accepts only the allowed deck sizes', () => {
+    for (const deckSize of [10, 15, 20]) {
+      expect(setDeckSizePayloadSchema.safeParse({ deckSize }).success).toBe(true);
+    }
+    expect(setDeckSizePayloadSchema.safeParse({ deckSize: 12 }).success).toBe(false);
+    expect(setDeckSizePayloadSchema.safeParse({ deckSize: '10' }).success).toBe(false);
+    expect(setDeckSizePayloadSchema.safeParse({}).success).toBe(false);
+  });
+});
+
 describe('chooseStatPayloadSchema', () => {
   it('accepts a real stat and ignores extra fields such as a player id', () => {
     expect(chooseStatPayloadSchema.parse({ stat: 'specialAttack', playerId: 'someone' })).toEqual({
@@ -107,5 +120,18 @@ describe('chooseStatPayloadSchema', () => {
   it('rejects an unknown stat or a missing one', () => {
     expect(chooseStatPayloadSchema.safeParse({ stat: 'special-attack' }).success).toBe(false);
     expect(chooseStatPayloadSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('chooseCardPayloadSchema', () => {
+  it('accepts a card id', () => {
+    expect(chooseCardPayloadSchema.parse({ cardId: 10033 })).toEqual({ cardId: 10033 });
+  });
+
+  it('rejects ids that are text, decimals, zero or missing', () => {
+    expect(chooseCardPayloadSchema.safeParse({ cardId: '5' }).success).toBe(false);
+    expect(chooseCardPayloadSchema.safeParse({ cardId: 1.5 }).success).toBe(false);
+    expect(chooseCardPayloadSchema.safeParse({ cardId: 0 }).success).toBe(false);
+    expect(chooseCardPayloadSchema.safeParse({}).success).toBe(false);
   });
 });

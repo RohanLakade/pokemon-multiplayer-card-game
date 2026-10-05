@@ -17,7 +17,7 @@ export function createTestKit() {
   const servers = [];
   const clients = [];
 
-  // configOverrides lets a test use short turns: { turnSeconds: 1, awayTurnSeconds: 1 }
+  // configOverrides lets a test use short turns: { turnSeconds: 1 }
   async function startServer(configOverrides = {}) {
     const cards = await getAllCards();
     const config = { clientOrigin: 'http://localhost:5173', trustProxy: 0, ...configOverrides };
@@ -43,11 +43,15 @@ export function createTestKit() {
     return { socket, ...response };
   }
 
-  // Two players in a room, game started, first round dealt
-  async function startTwoPlayerGame(url) {
+  // Two players in a room, the host (Alice) picks the deck size, game started, first round dealt.
+  // A deck of 10 cards keeps tests quick.
+  async function startTwoPlayerGame(url, deckSize = 10) {
     const room = createRoom();
     const alice = await joinNewPlayer(url, room.code, 'Alice');
     const bob = await joinNewPlayer(url, room.code, 'Bob');
+
+    const sized = await emitWithAck(alice.socket, 'room:set-deck-size', { deckSize });
+    expect(sized.ok).toBe(true);
 
     const aliceRound = waitFor(alice.socket, 'round:started');
     const bobRound = waitFor(bob.socket, 'round:started');

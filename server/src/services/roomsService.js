@@ -1,13 +1,18 @@
 import { randomInt } from 'node:crypto';
-import { MAX_PLAYERS, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@pokemon-game/shared';
+import {
+  DEFAULT_DECK_SIZE,
+  MAX_PLAYERS,
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+} from '@pokemon-game/shared';
 import { clearTurnTimer } from './turnService.js';
 
 const MAX_ROOMS = 500;
 const ROOM_LIFETIME_MS = 2 * 60 * 60 * 1000; // rooms are cleaned up 2 hours after creation
 
 // Rooms live in memory only: code -> room.
-// room = { code, createdAt, status: 'lobby' | 'playing' | 'finished', hostId, players, game,
-//          turnTimer, turnEndsAt, turnStep }  (the last three belong to the turn timer)
+// room = { code, createdAt, status: 'lobby' | 'playing' | 'finished', hostId, players,
+//          deckSize (chosen by the host), game, turnTimer, turnEndsAt, turnStep }
 const rooms = new Map();
 
 // crypto.randomInt is unpredictable, so codes cannot be guessed from earlier ones.
@@ -45,6 +50,7 @@ export function createRoom(now = Date.now()) {
     status: 'lobby',
     hostId: null,
     players: [],
+    deckSize: DEFAULT_DECK_SIZE,
     game: null,
     turnTimer: null,
     turnEndsAt: null,

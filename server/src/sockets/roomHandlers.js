@@ -1,4 +1,4 @@
-import { joinRoomPayloadSchema } from '@pokemon-game/shared';
+import { joinRoomPayloadSchema, setDeckSizePayloadSchema } from '@pokemon-game/shared';
 import { findRoom, deleteRoom } from '../services/roomsService.js';
 import {
   addPlayer,
@@ -64,8 +64,7 @@ function leaveRoom(io, socket, room, player, flow) {
 
   emitToEachPlayer(io, room, 'player:disconnected', () => ({ playerId: player.id }));
   sendRoomState(io, room);
-  // Tell the game flow: it plays the card of an offline player (a card needs no decision).
-  // An offline leader is not skipped: they keep their full time to come back and choose.
+  // The game keeps waiting for this player until the clock ends (they may come back)
   flow.handlePlayerAway(io, room);
 }
 
@@ -106,6 +105,22 @@ export function registerRoomHandlers({ io, socket, on, failedJoins, clientIp, fl
       return { playerId: player.id, sessionToken: player.sessionToken, roomCode: room.code };
     },
   );
+
+  // The host chooses how many cards each player gets (10, 15 or 20). Everyone sees it.
+  on('room:set-deck-size', { schema: setDeckSizePayloadSchema }, ({ deckSize }) => {
+    const { room, player } = getContext(socket);
+
+    if (room.hostId !== player.id) {
+      throw new GameRuleError('NOT_HOST', 'Only the host can choose the deck size');
+    }
+    if (room.status !== 'lobby') {
+      throw new GameRuleError('GAME_IN_PROGRESS', 'The game has already started');
+    }
+
+    room.deckSize = deckSize;
+    sendRoomState(io, room);
+    return {};
+  });
 
   on('room:leave', {}, () => {
     const { room, player } = getContext(socket);

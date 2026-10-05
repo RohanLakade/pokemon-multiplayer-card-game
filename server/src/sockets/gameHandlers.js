@@ -1,5 +1,9 @@
-import { MIN_PLAYERS, chooseStatPayloadSchema } from '@pokemon-game/shared';
-import { getPrivateView } from '../services/gameService.js';
+import {
+  MIN_PLAYERS,
+  chooseCardPayloadSchema,
+  chooseStatPayloadSchema,
+} from '@pokemon-game/shared';
+import { getPrivateView } from '../services/matchService.js';
 import { GameRuleError } from '../services/gameErrors.js';
 import { getContext } from './context.js';
 
@@ -37,11 +41,11 @@ export function registerGameHandlers({ io, socket, on, cards, flow }) {
     return { you: getPrivateView(room.game, player.id) };
   });
 
-  on('round:play-card', {}, () => {
+  on('round:choose-card', { schema: chooseCardPayloadSchema }, ({ cardId }) => {
     const { room, player } = getContext(socket);
     requireGame(room);
 
-    flow.handlePlayCard(io, room, player);
+    flow.handleChooseCard(io, room, player, cardId);
     return { you: getPrivateView(room.game, player.id) };
   });
 }

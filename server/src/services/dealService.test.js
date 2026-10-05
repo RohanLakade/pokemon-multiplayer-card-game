@@ -4,7 +4,7 @@ import { getAllCards } from './cardsService.js';
 import { dealDecks } from './dealService.js';
 import { GameRuleError } from './gameErrors.js';
 
-// The biggest game planned for the new version. Dealing for it proves the roster is big enough.
+// The biggest game: dealing for it proves the roster is big enough
 const LARGEST_GAME = 8;
 
 function totalBst(deck) {
@@ -72,5 +72,16 @@ describe('dealDecks rules', () => {
       .map((card) => card.id);
 
     expect(first).not.toEqual(second);
+  });
+
+  it('does not keep dealing the same cards: many games show many different Pokémon', async () => {
+    const cards = await getAllCards();
+    const seen = new Set();
+
+    for (let game = 0; game < 40; game += 1) {
+      for (const card of dealDecks(cards, 2, 10).flat()) seen.add(card.id);
+    }
+
+    expect(seen.size).toBeGreaterThan(250);
   });
 });
