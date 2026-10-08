@@ -1,19 +1,19 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { ROUNDS_PER_GAME } from '@pokemon-game/shared';
+import { DEFAULT_DECK_SIZE, HAND_SIZE } from '@pokemon-game/shared';
 
 const initialState = {
-  phase: null, // 'choosing-stat' | 'playing-cards' | 'finished'
+  phase: null, // 'choosing-stat' | 'choosing-cards' | 'finished'
   round: 0,
-  totalRounds: ROUNDS_PER_GAME,
+  totalRounds: DEFAULT_DECK_SIZE,
   leaderId: null,
   chosenStat: null,
-  players: [], // [{ id, name, roundWins, hasPlayed }]
-  playedCards: [], // cards revealed this round: [{ playerId, card }]
-  myCard: null, // this player's own current card (the server never sends anyone else's)
+  players: [], // [{ id, name, roundWins, hasPicked, handSize, cardsLeft }]
+  hand: [], // this player's own cards (the server never sends anyone else's)
+  pickedCardId: null, // the card this player picked this round, if any
   canChooseStat: false,
-  canPlayCard: false,
+  canChooseCard: false,
   turnSecondsLeft: null, // seconds the server's turn clock had left when the last event arrived
-  lastResult: null, // the round that was just scored; the screen shows it until dismissed
+  lastResult: null, // the round that was just scored; the screen shows it until it closes
   finalResult: null, // { winnerIds, scores } once the game is over
 };
 
@@ -25,19 +25,19 @@ function applyPublicState(state, game) {
   state.leaderId = game.leaderId;
   state.chosenStat = game.chosenStat;
   state.players = game.players;
-  state.playedCards = game.playedCards;
 }
 
 // What only this player may see and do
 function applyPrivateView(state, view) {
-  state.myCard = view.currentCard;
+  state.hand = view.hand;
+  state.pickedCardId = view.pickedCardId;
   state.canChooseStat = view.canChooseStat;
-  state.canPlayCard = view.canPlayCard;
+  state.canChooseCard = view.canChooseCard;
 }
 
-function markPlayed(state, playerId) {
+function markPicked(state, playerId) {
   const player = state.players.find((candidate) => candidate.id === playerId);
-  if (player) player.hasPlayed = true;
+  if (player) player.hasPicked = true;
 }
 
 const gameSlice = createSlice({
@@ -56,34 +56,39 @@ const gameSlice = createSlice({
       state.totalRounds = totalRounds;
       state.leaderId = leaderId;
       state.chosenStat = null;
-      state.playedCards = [];
       state.turnSecondsLeft = turnSecondsLeft ?? null;
-      for (const player of state.players) player.hasPlayed = false;
+      for (const player of state.players) player.hasPicked = false;
       applyPrivateView(state, you);
     },
 
     statChosen(state, action) {
-      const { leaderId, stat, card, turnSecondsLeft, you } = action.payload;
-      state.phase = 'playing-cards';
+      const { stat, turnSecondsLeft, you } = action.payload;
+      state.phase = 'choosing-cards';
       state.chosenStat = stat;
-      state.playedCards = [{ playerId: leaderId, card }];
       state.turnSecondsLeft = turnSecondsLeft ?? null;
-      markPlayed(state, leaderId);
       applyPrivateView(state, you);
     },
 
-    cardPlayed(state, action) {
-      const { playerId, card } = action.payload;
-      const alreadyShown = state.playedCards.some((played) => played.playerId === playerId);
-      if (!alreadyShown) state.playedCards.push({ playerId, card });
-      markPlayed(state, playerId);
+    // Somebody picked a card. We only learn THAT they picked, never which card.
+    cardPicked(state, action) {
+      markPicked(state, action.payload.playerId);
+    },
+
+    // The server's answer to our own move, so the screen reflects it straight away
+    privateViewUpdated(state, action) {
+      applyPrivateView(state, action.payload);
     },
 
     roundResult(state, action) {
       state.lastResult = action.payload;
-      for (const score of action.payload.scores) {
-        const player = state.players.find((candidate) => candidate.id === score.playerId);
-        if (player) player.roundWins = score.roundWins;
+
+      for (const player of state.players) {
+        const score = action.payload.scores.find((entry) => entry.playerId === player.id);
+        if (score) player.roundWins = score.roundWins;
+
+        // Every player plays exactly one card per round, so everyone has one card fewer
+        player.cardsLeft = Math.max(0, player.cardsLeft - 1);
+        player.handSize = Math.min(HAND_SIZE, player.cardsLeft);
       }
     },
 
@@ -94,9 +99,10 @@ const gameSlice = createSlice({
     gameOver(state, action) {
       state.finalResult = action.payload;
       state.phase = 'finished';
-      state.myCard = null;
+      state.hand = [];
+      state.pickedCardId = null;
       state.canChooseStat = false;
-      state.canPlayCard = false;
+      state.canChooseCard = false;
       state.turnSecondsLeft = null;
     },
 
@@ -104,7 +110,7 @@ const gameSlice = createSlice({
     gameSynced(state, action) {
       const roomState = action.payload;
       applyPublicState(state, roomState.game);
-      if (roomState.private) applyPrivateView(state, roomState.private);
+      applyPrivateView(state, roomState.private);
       state.turnSecondsLeft = roomState.turnSecondsLeft ?? null;
       state.finalResult = roomState.finalResult;
     },
@@ -119,7 +125,8 @@ export const {
   gameStarted,
   roundStarted,
   statChosen,
-  cardPlayed,
+  cardPicked,
+  privateViewUpdated,
   roundResult,
   roundResultDismissed,
   gameOver,

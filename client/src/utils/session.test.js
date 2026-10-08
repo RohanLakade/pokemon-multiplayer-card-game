@@ -9,13 +9,13 @@ import {
 } from './session.js';
 
 afterEach(() => {
-  sessionStorage.clear();
+  localStorage.clear();
   window.history.pushState({}, '', '/');
 });
 
 const seat = { code: 'ABC234', sessionToken: 'a'.repeat(64) };
 
-describe('session storage', () => {
+describe('saved seat', () => {
   it('saves, loads and clears a seat', () => {
     saveSession(seat);
     expect(loadSession()).toEqual(seat);
@@ -25,10 +25,10 @@ describe('session storage', () => {
   });
 
   it('ignores damaged or incomplete data', () => {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, 'not json');
+    localStorage.setItem(SESSION_STORAGE_KEY, 'not json');
     expect(loadSession()).toBeNull();
 
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ code: 'ABC234' }));
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ code: 'ABC234' }));
     expect(loadSession()).toBeNull();
   });
 });

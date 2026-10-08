@@ -29,6 +29,12 @@ describe('Countdown', () => {
     expect(screen.getByRole('timer')).toHaveTextContent('Time left: 0s');
   });
 
+  it('can show a different label', () => {
+    render(<Countdown seconds={5} label="Next round in" />);
+
+    expect(screen.getByRole('timer')).toHaveTextContent('Next round in: 5s');
+  });
+
   it('shows nothing when no timer is running', () => {
     render(<Countdown seconds={null} />);
 

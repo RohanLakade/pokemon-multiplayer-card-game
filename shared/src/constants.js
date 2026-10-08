@@ -2,11 +2,6 @@
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 8;
 
-// Left over from the first version of the game. Only the old client screens still use these,
-// and they are removed in reply 3 of the redesign.
-export const CARDS_PER_PLAYER = 20;
-export const ROUNDS_PER_GAME = CARDS_PER_PLAYER;
-
 // Each player holds a hand of 5 cards, and the host chooses the deck size.
 // The game lasts as many rounds as the deck has cards.
 export const HAND_SIZE = 5;
@@ -28,5 +23,6 @@ export const PLAYER_NAME_MAX_LENGTH = 20;
 export const SESSION_TOKEN_LENGTH = 64;
 
 // Turn timer: each step (choosing a stat, then everyone choosing a card) gets this many
-// seconds, whether the player is online or not
-export const TURN_SECONDS = 20;
+// seconds, whether the player is online or not. The round result stays on screen for about
+// 5 seconds of the next step, so 25 leaves players around 20 seconds.
+export const TURN_SECONDS = 25;

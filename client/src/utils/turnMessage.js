@@ -2,15 +2,20 @@
 export function getTurnMessage({
   phase,
   canChooseStat,
-  canPlayCard,
+  canChooseCard,
   leaderName,
   statLabel,
-  playedCount,
+  pickedCount,
   playerCount,
 }) {
   if (phase === 'finished') return 'The game is over';
-  if (canChooseStat) return 'You lead this round. Choose a stat on your card.';
-  if (phase === 'choosing-stat') return `Waiting for ${leaderName} to choose a stat…`;
-  if (canPlayCard) return `${leaderName} chose ${statLabel}. Play your card.`;
-  return `Waiting for the other players (${playedCount} of ${playerCount} have played)…`;
+
+  if (phase === 'choosing-stat') {
+    return canChooseStat
+      ? 'You lead this round. Choose a stat.'
+      : `Waiting for ${leaderName} to choose a stat…`;
+  }
+
+  if (canChooseCard) return `${leaderName} chose ${statLabel}. Pick a card from your hand.`;
+  return `Waiting for the other players (${pickedCount} of ${playerCount} have picked)…`;
 }

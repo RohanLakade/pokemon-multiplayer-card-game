@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
+import { privateViewUpdated } from '../store/gameSlice.js';
 import { noticeShown } from '../store/roomSlice.js';
 import { sendEvent } from '../utils/socket.js';
 
 // The two things a player can do during a game. While one request is on its way,
-// further clicks are ignored, so a double click cannot send the same move twice.
+// further clicks are ignored, so a double tap cannot send the same move twice.
 export function useGameActions() {
   const dispatch = useDispatch();
   const [isSending, setIsSending] = useState(false);
@@ -13,7 +14,9 @@ export function useGameActions() {
     if (isSending) return;
     setIsSending(true);
     try {
-      await sendEvent(eventName, payload);
+      const response = await sendEvent(eventName, payload);
+      // The answer carries this player's updated hand and options, which updates the screen
+      if (response.you) dispatch(privateViewUpdated(response.you));
     } catch (error) {
       dispatch(noticeShown(error.message));
     } finally {
@@ -24,6 +27,6 @@ export function useGameActions() {
   return {
     isSending,
     chooseStat: (stat) => send('round:choose-stat', { stat }),
-    playCard: () => send('round:play-card'),
+    chooseCard: (cardId) => send('round:choose-card', { cardId }),
   };
 }

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import PokemonCard from './PokemonCard.jsx';
 
@@ -14,6 +13,8 @@ const bulbasaur = {
   category: 'base',
   speciesId: 1,
   image: 'https://example.com/1.png',
+  bst: 318,
+  tier: 'C',
   stats: {
     hp: 45,
     attack: 49,
@@ -26,34 +27,16 @@ const bulbasaur = {
 };
 
 describe('PokemonCard', () => {
-  it('shows the name, category, artwork and all 7 stats', () => {
+  it('shows the name, category, tier, artwork and all 7 stats', () => {
     render(<PokemonCard card={bulbasaur} />);
 
     expect(screen.getByRole('heading', { name: 'Bulbasaur' })).toBeInTheDocument();
     expect(screen.getByText('Base')).toBeInTheDocument();
+    expect(screen.getByText('Tier C')).toBeInTheDocument();
+    expect(screen.getByText('Base stat total 318')).toBeInTheDocument();
     expect(screen.getByAltText('Bulbasaur official artwork')).toHaveAttribute('width', '176');
     expect(screen.getAllByRole('listitem')).toHaveLength(7);
     expect(screen.getByText('#1')).toBeInTheDocument(); // rank is shown as a Pokédex number
-  });
-
-  it('has no buttons when the stats cannot be chosen', () => {
-    render(<PokemonCard card={bulbasaur} />);
-
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
-  });
-
-  it('turns every stat into a clearly named button when a stat can be chosen', async () => {
-    const onSelectStat = vi.fn();
-    render(<PokemonCard card={bulbasaur} onSelectStat={onSelectStat} />);
-
-    expect(screen.getAllByRole('button')).toHaveLength(7);
-    expect(
-      screen.getByRole('button', { name: 'Choose Rank, number 1, lower wins' }),
-    ).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Choose Attack, value 49' }));
-
-    expect(onSelectStat).toHaveBeenCalledWith('attack');
   });
 
   it('marks the stat that was chosen this round', () => {

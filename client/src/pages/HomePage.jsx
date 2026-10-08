@@ -4,9 +4,11 @@ import { useSearchParams } from 'react-router';
 import { playerNameSchema, roomCodeSchema } from '@pokemon-game/shared';
 import Button from '../components/Button.jsx';
 import PageMeta from '../components/PageMeta.jsx';
+import SavedGameBanner from '../components/SavedGameBanner.jsx';
 import TextField from '../components/TextField.jsx';
 import { useJoinRoom } from '../hooks/useJoinRoom.js';
-import { leaveRoom } from '../utils/roomActions.js';
+import { useSavedSeat } from '../hooks/useSavedSeat.js';
+import { releaseRoom } from '../utils/roomActions.js';
 
 function HomePage() {
   const dispatch = useDispatch();
@@ -17,10 +19,12 @@ function HomePage() {
   const [nameError, setNameError] = useState(null);
   const [codeError, setCodeError] = useState(null);
   const { createAndJoin, joinExisting, isBusy, error } = useJoinRoom();
+  const { seat, forgetSeat } = useSavedSeat();
 
-  // Being on the home page means "not in a room": drop any leftover connection and state
+  // Being on the home page means "not in a room": drop any leftover connection and screen state.
+  // The saved seat is kept, so a game that is still running can be rejoined from the banner.
   useEffect(() => {
-    leaveRoom(dispatch);
+    releaseRoom(dispatch);
   }, [dispatch]);
 
   // The same Zod schemas the server uses, so the browser and the server agree
@@ -55,10 +59,12 @@ function HomePage() {
       <section className="mx-auto max-w-2xl text-center">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Pokémon Card Battle</h1>
         <p className="mt-4 text-lg text-slate-300">
-          A free multiplayer Top Trumps game for 2 to 6 players. Pick the stat you think will win,
-          play your card and beat your friends.
+          A free multiplayer Top Trumps game for 2 to 8 players. Choose the stat you think will win,
+          pick the right card from your hand and beat your friends.
         </p>
       </section>
+
+      {seat && <SavedGameBanner seat={seat} onForget={forgetSeat} />}
 
       <section
         aria-labelledby="play-heading"
@@ -121,11 +127,20 @@ function HomePage() {
           How to play
         </h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-slate-300">
-          <li>Each player gets 20 secret Pokémon cards.</li>
-          <li>The round leader plays a card and picks one stat, such as Attack or Speed.</li>
-          <li>Everyone else plays their next card. The best value in that stat wins the round.</li>
-          <li>For Rank, the lower Pokédex number wins. The round winner leads next.</li>
-          <li>After 20 rounds, the player with the most round wins takes the game.</li>
+          <li>
+            Each player gets a secret deck of Pokémon cards (10, 15 or 20, chosen by the host) and
+            holds 5 of them in hand.
+          </li>
+          <li>The round leader chooses one stat, such as Attack or Speed.</li>
+          <li>
+            Everyone secretly picks one card from their hand. Then all the cards are revealed
+            together.
+          </li>
+          <li>
+            The best value in that stat wins the round. For Rank, the lower Pokédex number wins. The
+            winner leads next, and played cards are replaced from your deck.
+          </li>
+          <li>The player with the most round wins takes the game. Equal scores share the win.</li>
         </ol>
       </section>
     </>

@@ -9,7 +9,7 @@ import {
   roomStatusChanged,
 } from '../store/roomSlice.js';
 import {
-  cardPlayed,
+  cardPicked,
   gameOver,
   gameStarted,
   gameSynced,
@@ -45,7 +45,7 @@ export function useSocketEvents() {
 
       'round:started': (payload) => dispatch(roundStarted(payload)),
       'round:stat-chosen': (payload) => dispatch(statChosen(payload)),
-      'round:card-played': (payload) => dispatch(cardPlayed(payload)),
+      'round:card-picked': (payload) => dispatch(cardPicked(payload)),
       'round:result': (payload) => dispatch(roundResult(payload)),
 
       'game:over': (payload) => {

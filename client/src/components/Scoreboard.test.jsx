@@ -7,25 +7,41 @@ import Scoreboard from './Scoreboard.jsx';
 afterEach(cleanup);
 
 const players = [
-  { id: 'p1', name: 'Ash', roundWins: 2, hasPlayed: true },
-  { id: 'p2', name: 'Misty', roundWins: 1, hasPlayed: false },
+  { id: 'p1', name: 'Ash', roundWins: 2, hasPicked: true, handSize: 5, cardsLeft: 7 },
+  { id: 'p2', name: 'Misty', roundWins: 1, hasPicked: false, handSize: 1, cardsLeft: 1 },
 ];
 
 describe('Scoreboard', () => {
-  it('shows each player with their round wins', () => {
-    render(<Scoreboard players={players} leaderId="p1" youId="p2" />);
+  it('shows each player with their round wins and cards left', () => {
+    render(<Scoreboard players={players} leaderId="p1" youId="p2" phase="choosing-stat" />);
 
     const [ash, misty] = screen.getAllByRole('listitem');
     expect(ash).toHaveTextContent(/Ash/);
     expect(ash).toHaveTextContent(/2\s*rounds won/);
+    expect(ash).toHaveTextContent(/7\s*cards left/);
     expect(misty).toHaveTextContent(/1\s*round won/);
+    expect(misty).toHaveTextContent(/1\s*card left/);
   });
 
-  it('labels the leader, who has played, who is you and who is offline', () => {
-    render(<Scoreboard players={players} leaderId="p1" youId="p2" offlineIds={['p2']} />);
+  it('shows who leads and who is choosing the stat', () => {
+    render(<Scoreboard players={players} leaderId="p1" youId="p2" phase="choosing-stat" />);
 
-    expect(screen.getByText('Leader · Played')).toBeInTheDocument();
-    expect(screen.getByText('Offline')).toBeInTheDocument();
+    expect(screen.getByText('Leader · Choosing stat…')).toBeInTheDocument();
     expect(screen.getByText('You')).toBeInTheDocument();
+  });
+
+  it('shows who has picked a card and who is offline', () => {
+    render(
+      <Scoreboard
+        players={players}
+        leaderId="p1"
+        youId="p2"
+        phase="choosing-cards"
+        offlineIds={['p2']}
+      />,
+    );
+
+    expect(screen.getByText('Leader · Picked')).toBeInTheDocument();
+    expect(screen.getByText('Choosing… · Offline')).toBeInTheDocument();
   });
 });

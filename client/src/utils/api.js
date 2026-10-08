@@ -1,7 +1,7 @@
 import { SERVER_URL } from './config.js';
 
-// Plain fetch, no extra library. On failure it throws an Error with a message
-// that is fine to show to the player.
+// Plain fetch, no extra library. On failure it throws an Error with a message that is fine
+// to show to the player, and with the server's error code (for example ROOM_NOT_FOUND).
 async function request(path, options) {
   let response;
   try {
@@ -12,7 +12,9 @@ async function request(path, options) {
 
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(body?.error?.message ?? 'Something went wrong');
+    throw Object.assign(new Error(body?.error?.message ?? 'Something went wrong'), {
+      code: body?.error?.code,
+    });
   }
   return body;
 }

@@ -18,7 +18,7 @@ export async function joinRoom(dispatch, code, playerName) {
         sessionToken: response.sessionToken,
       }),
     );
-    // Remember the seat, so a page refresh can sit back down
+    // Remember the seat, so the player can come back to a running game
     saveSession({ code: response.roomCode, sessionToken: response.sessionToken });
   } catch (error) {
     dispatch(connectionChanged('idle'));
@@ -26,8 +26,8 @@ export async function joinRoom(dispatch, code, playerName) {
   }
 }
 
-// Takes the same seat again, with the private token (after a refresh or a lost connection).
-// The server then sends the whole room state, which restores the screen.
+// Takes the same seat again, with the private token (after a refresh, a reopened tab or a
+// lost connection). The server then sends the whole room state, which restores the screen.
 export async function rejoinRoom(dispatch, { code, sessionToken }) {
   await connectSocket();
   const response = await sendEvent('room:join', { code, sessionToken });
@@ -41,11 +41,16 @@ export async function rejoinRoom(dispatch, { code, sessionToken }) {
   );
 }
 
-// Leaving is just disconnecting: the server removes the player from a lobby,
-// or keeps their seat for a while during a game. We also forget the saved seat.
-export function leaveRoom(dispatch) {
+// Drops the connection and the screen state but KEEPS the saved seat. The home page uses this,
+// so that a game that is still running can be rejoined from the "Rejoin" banner.
+export function releaseRoom(dispatch) {
   socket.disconnect();
-  clearSession();
   dispatch(roomLeft());
   dispatch(gameReset());
+}
+
+// Leaving on purpose also forgets the saved seat.
+export function leaveRoom(dispatch) {
+  clearSession();
+  releaseRoom(dispatch);
 }

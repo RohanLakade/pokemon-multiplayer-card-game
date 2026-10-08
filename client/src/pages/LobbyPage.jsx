@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router';
-import { MAX_PLAYERS, MIN_PLAYERS } from '@pokemon-game/shared';
+import { HAND_SIZE, MAX_PLAYERS, MIN_PLAYERS } from '@pokemon-game/shared';
 import Button from '../components/Button.jsx';
+import DeckSizePicker from '../components/DeckSizePicker.jsx';
 import PageMeta from '../components/PageMeta.jsx';
 import PlayerList from '../components/PlayerList.jsx';
 import { useRoomGuard } from '../hooks/useRoomGuard.js';
@@ -20,7 +21,7 @@ function LobbyPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const isInRoom = useRoomGuard(code);
-  const { players, hostId, playerId, status } = useSelector((state) => state.room);
+  const { players, hostId, playerId, status, deckSize } = useSelector((state) => state.room);
   const isHost = useSelector(selectIsHost);
   const [copied, setCopied] = useState(null); // 'code', 'link' or null
 
@@ -39,6 +40,14 @@ function LobbyPage() {
       setTimeout(() => setCopied((current) => (current === kind ? null : current)), 2000);
     } catch {
       dispatch(noticeShown(`Could not copy. Share the room code instead: ${code}`));
+    }
+  }
+
+  async function handleDeckSize(size) {
+    try {
+      await sendEvent('room:set-deck-size', { deckSize: size });
+    } catch (error) {
+      dispatch(noticeShown(error.message));
     }
   }
 
@@ -93,6 +102,20 @@ function LobbyPage() {
           </span>
         </h2>
         <PlayerList players={players} hostId={hostId} youId={playerId} />
+
+        <div className="mt-6">
+          {isHost ? (
+            <DeckSizePicker value={deckSize} onChange={handleDeckSize} />
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-panel p-4 text-slate-300">
+              The host chose <strong className="text-accent">{deckSize} cards</strong> per player,
+              so the game lasts {deckSize} rounds.
+            </p>
+          )}
+          <p className="mt-2 text-sm text-slate-400">
+            Each player holds {HAND_SIZE} cards at a time. A played card is replaced from the deck.
+          </p>
+        </div>
 
         <div className="mt-6 space-y-3">
           {isHost ? (

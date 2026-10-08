@@ -4,7 +4,8 @@ import gameReducer, {
   gameSynced,
   roundStarted,
   statChosen,
-  cardPlayed,
+  cardPicked,
+  privateViewUpdated,
   roundResult,
   roundResultDismissed,
   gameOver,
@@ -12,100 +13,84 @@ import gameReducer, {
 } from './gameSlice.js';
 
 function makeCard(id, name) {
-  return { id, name, displayName: name, stats: {} };
+  return { id, name, displayName: name, tier: 'C', bst: 300, stats: {} };
 }
+
+const hand = [makeCard(1, 'Bulbasaur'), makeCard(4, 'Charmander')];
 
 const publicGame = {
   phase: 'choosing-stat',
   round: 1,
-  totalRounds: 20,
+  totalRounds: 10,
   leaderId: 'p1',
   chosenStat: null,
   players: [
-    { id: 'p1', name: 'Ash', roundWins: 0, hasPlayed: false },
-    { id: 'p2', name: 'Misty', roundWins: 0, hasPlayed: false },
+    { id: 'p1', name: 'Ash', roundWins: 0, hasPicked: false, handSize: 5, cardsLeft: 10 },
+    { id: 'p2', name: 'Misty', roundWins: 0, hasPicked: false, handSize: 5, cardsLeft: 10 },
   ],
-  playedCards: [],
 };
 
-// A game that has started and whose first round was dealt to the LEADER (p1)
+// A game that has started and whose first round was dealt, with this player as the LEADER
 function startedAsLeader() {
   const started = gameReducer(undefined, gameStarted({ game: publicGame }));
   return gameReducer(
     started,
     roundStarted({
       round: 1,
-      totalRounds: 20,
+      totalRounds: 10,
       leaderId: 'p1',
-      turnSecondsLeft: 30,
-      you: { currentCard: makeCard(1, 'Bulbasaur'), canChooseStat: true, canPlayCard: false },
+      turnSecondsLeft: 25,
+      you: { hand, pickedCardId: null, canChooseStat: true, canChooseCard: false },
     }),
   );
 }
 
 describe('gameSlice', () => {
-  it('holds only this player card when a round starts', () => {
+  it('holds only this player hand when a round starts', () => {
     const state = startedAsLeader();
 
     expect(state.round).toBe(1);
     expect(state.leaderId).toBe('p1');
-    expect(state.myCard.displayName).toBe('Bulbasaur');
+    expect(state.hand).toHaveLength(2);
     expect(state.canChooseStat).toBe(true);
-    expect(state.playedCards).toEqual([]);
+    expect(state.canChooseCard).toBe(false);
+    expect(state.turnSecondsLeft).toBe(25);
   });
 
-  it('reveals the leader card and lets the others play when a stat is chosen', () => {
+  it('lets everyone choose a card once the stat is chosen', () => {
     const state = gameReducer(
       startedAsLeader(),
       statChosen({
         round: 1,
         leaderId: 'p1',
         stat: 'attack',
-        card: makeCard(1, 'Bulbasaur'),
-        turnSecondsLeft: 29,
-        you: { currentCard: null, canChooseStat: false, canPlayCard: false },
+        turnSecondsLeft: 24,
+        you: { hand, pickedCardId: null, canChooseStat: false, canChooseCard: true },
       }),
     );
 
-    expect(state.phase).toBe('playing-cards');
+    expect(state.phase).toBe('choosing-cards');
     expect(state.chosenStat).toBe('attack');
-    expect(state.playedCards).toHaveLength(1);
-    expect(state.players[0].hasPlayed).toBe(true);
-    expect(state.myCard).toBeNull();
+    expect(state.canChooseStat).toBe(false);
+    expect(state.canChooseCard).toBe(true);
+    expect(state.turnSecondsLeft).toBe(24);
   });
 
-  it('adds a played card once and marks who has played', () => {
+  it('marks who has picked, and keeps this player own pick from the server answer', () => {
     let state = startedAsLeader();
-    const action = cardPlayed({ round: 1, playerId: 'p2', card: makeCard(4, 'Charmander') });
-    state = gameReducer(state, action);
-    state = gameReducer(state, action);
-
-    expect(state.playedCards).toHaveLength(1);
-    expect(state.players[1].hasPlayed).toBe(true);
-  });
-
-  it('keeps the time left that the server reported for each step', () => {
-    let state = startedAsLeader();
-    expect(state.turnSecondsLeft).toBe(30);
+    state = gameReducer(state, cardPicked({ round: 1, playerId: 'p2' }));
+    expect(state.players[1].hasPicked).toBe(true);
+    expect(state.players[0].hasPicked).toBe(false);
 
     state = gameReducer(
       state,
-      statChosen({
-        round: 1,
-        leaderId: 'p1',
-        stat: 'speed',
-        card: makeCard(1, 'Bulbasaur'),
-        turnSecondsLeft: 27,
-        you: { currentCard: null, canChooseStat: false, canPlayCard: false },
-      }),
+      privateViewUpdated({ hand, pickedCardId: 4, canChooseStat: false, canChooseCard: false }),
     );
-    expect(state.turnSecondsLeft).toBe(27);
-
-    state = gameReducer(state, gameOver({ winnerIds: ['p1'], scores: [] }));
-    expect(state.turnSecondsLeft).toBeNull();
+    expect(state.pickedCardId).toBe(4);
+    expect(state.canChooseCard).toBe(false);
   });
 
-  it('keeps the scored round for the result dialog until it is dismissed', () => {
+  it('keeps the scored round for the result dialog, and counts the cards left', () => {
     const result = {
       round: 1,
       stat: 'attack',
@@ -121,25 +106,53 @@ describe('gameSlice', () => {
 
     expect(state.lastResult.winnerId).toBe('p2');
     expect(state.players[1].roundWins).toBe(1);
+    expect(state.players[0].cardsLeft).toBe(9);
+    expect(state.players[0].handSize).toBe(5);
 
     state = gameReducer(state, roundResultDismissed());
     expect(state.lastResult).toBeNull();
   });
 
-  it('stores the final result and switches the turn controls off', () => {
+  it('shrinks the hand size once the draw pile is empty', () => {
+    const nearTheEnd = {
+      ...publicGame,
+      players: publicGame.players.map((player) => ({ ...player, cardsLeft: 5, handSize: 5 })),
+    };
+    let state = gameReducer(undefined, gameStarted({ game: nearTheEnd }));
+    state = gameReducer(
+      state,
+      roundResult({
+        round: 6,
+        stat: 'speed',
+        plays: [],
+        winnerId: null,
+        nextLeaderId: 'p1',
+        scores: [],
+      }),
+    );
+
+    expect(state.players[0].cardsLeft).toBe(4);
+    expect(state.players[0].handSize).toBe(4);
+  });
+
+  it('stores the final result and switches the controls off', () => {
     const final = { winnerIds: ['p2'], scores: [] };
-    const state = gameReducer(startedAsLeader(), gameOver(final));
+    let state = gameReducer(startedAsLeader(), gameOver(final));
 
     expect(state.phase).toBe('finished');
     expect(state.finalResult.winnerIds).toEqual(['p2']);
+    expect(state.hand).toEqual([]);
     expect(state.canChooseStat).toBe(false);
-    expect(state.myCard).toBeNull();
+    expect(state.turnSecondsLeft).toBeNull();
+
+    state = gameReducer(state, gameReset());
+    expect(state.phase).toBeNull();
   });
 
   it('rebuilds the whole game from a full room state after reconnecting', () => {
     const roomState = {
-      game: { ...publicGame, round: 7, phase: 'playing-cards', chosenStat: 'speed' },
-      private: { currentCard: makeCard(9, 'Blastoise'), canChooseStat: false, canPlayCard: true },
+      game: { ...publicGame, round: 7, phase: 'choosing-cards', chosenStat: 'speed' },
+      private: { hand, pickedCardId: 1, canChooseStat: false, canChooseCard: false },
       turnSecondsLeft: 12,
       finalResult: null,
     };
@@ -147,15 +160,8 @@ describe('gameSlice', () => {
 
     expect(state.round).toBe(7);
     expect(state.chosenStat).toBe('speed');
-    expect(state.myCard.displayName).toBe('Blastoise');
-    expect(state.canPlayCard).toBe(true);
+    expect(state.hand).toHaveLength(2);
+    expect(state.pickedCardId).toBe(1);
     expect(state.turnSecondsLeft).toBe(12);
-  });
-
-  it('goes back to the start when reset', () => {
-    const state = gameReducer(startedAsLeader(), gameReset());
-
-    expect(state.phase).toBeNull();
-    expect(state.round).toBe(0);
   });
 });

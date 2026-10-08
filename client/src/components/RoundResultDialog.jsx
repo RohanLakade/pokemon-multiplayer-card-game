@@ -1,10 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { STATS } from '@pokemon-game/shared';
-import { formatStatValue } from '../utils/statStyles.js';
 import Button from './Button.jsx';
+import Countdown from './Countdown.jsx';
+import RevealedCard from './RevealedCard.jsx';
 
-// Shows who won the round, using the browser's built-in modal <dialog>.
-// The browser dims the page, keeps keyboard focus inside the dialog and closes it on Escape.
+// The result closes by itself after this many seconds, so the game keeps moving
+const AUTO_CLOSE_SECONDS = 5;
+
+// The moment all cards are revealed together. It uses the browser's built-in modal <dialog>:
+// the browser dims the page, keeps keyboard focus inside and closes it on Escape for us.
+// "onContinue" should be a stable function (useCallback), otherwise the 5 second timer restarts
+// every time the page re-renders.
 function RoundResultDialog({ result, players, youId, isGameOver, onContinue }) {
   const dialogRef = useRef(null);
 
@@ -13,6 +19,13 @@ function RoundResultDialog({ result, players, youId, isGameOver, onContinue }) {
     if (result && !dialog.open) dialog.showModal();
     if (!result && dialog.open) dialog.close();
   }, [result]);
+
+  useEffect(() => {
+    if (!result) return undefined;
+
+    const timeout = setTimeout(onContinue, AUTO_CLOSE_SECONDS * 1000);
+    return () => clearTimeout(timeout);
+  }, [result, onContinue]);
 
   const nameOf = (playerId) => players.find((player) => player.id === playerId)?.name ?? 'Someone';
   const stat = result ? STATS.find((candidate) => candidate.key === result.stat) : null;
@@ -28,7 +41,7 @@ function RoundResultDialog({ result, players, youId, isGameOver, onContinue }) {
       ref={dialogRef}
       aria-labelledby="round-result-title"
       onClose={onContinue}
-      className="m-auto w-[calc(100%_-_2rem)] max-w-lg animate-pop-in rounded-2xl border border-white/10 bg-panel p-6 text-slate-100 backdrop:bg-black/70"
+      className="m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-xl animate-pop-in overflow-y-auto rounded-2xl border border-white/10 bg-panel p-5 text-slate-100 backdrop:bg-black/70"
     >
       {result && (
         <>
@@ -40,33 +53,30 @@ function RoundResultDialog({ result, players, youId, isGameOver, onContinue }) {
             {stat.lowerWins && ' (the lowest number wins)'}
           </p>
 
-          <ul className="mt-4 space-y-2">
-            {result.plays.map((play) => {
-              const isWinner = play.playerId === result.winnerId;
-              return (
-                <li
-                  key={play.playerId}
-                  className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${
-                    isWinner ? 'bg-accent/20 ring-1 ring-accent' : 'bg-panel-light'
-                  }`}
-                >
-                  <span>
-                    {nameOf(play.playerId)}
-                    {play.playerId === youId && ' (you)'} played{' '}
-                    <strong>{play.card.displayName}</strong>
-                  </span>
-                  <span className="font-bold tabular-nums">
-                    {formatStatValue(result.stat, play.value)}
-                    {isWinner && <span className="ml-2 text-xs text-accent uppercase">Winner</span>}
-                  </span>
-                </li>
-              );
-            })}
+          <ul aria-label="Revealed cards" className="mt-4 grid gap-2 sm:grid-cols-2">
+            {result.plays.map((play) => (
+              <RevealedCard
+                key={play.playerId}
+                card={play.card}
+                value={play.value}
+                stat={result.stat}
+                playerName={nameOf(play.playerId)}
+                isYou={play.playerId === youId}
+                isWinner={play.playerId === result.winnerId}
+              />
+            ))}
           </ul>
 
-          <Button onClick={onContinue} className="mt-6 w-full">
-            {isGameOver ? 'See the final result' : 'Next round'}
-          </Button>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <Countdown
+              key={result.round}
+              seconds={AUTO_CLOSE_SECONDS}
+              label={isGameOver ? 'Final result in' : 'Next round in'}
+            />
+            <Button onClick={onContinue}>
+              {isGameOver ? 'See the final result' : 'Continue now'}
+            </Button>
+          </div>
         </>
       )}
     </dialog>

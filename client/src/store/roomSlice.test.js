@@ -14,6 +14,7 @@ const roomState = {
   code: 'ABC234',
   status: 'lobby',
   hostId: 'p1',
+  deckSize: 15,
   players: [
     { id: 'p1', name: 'Ash', connected: true },
     { id: 'p2', name: 'Misty', connected: true },
@@ -32,13 +33,18 @@ describe('roomSlice', () => {
     expect(state.sessionToken).toBe('secret');
   });
 
-  it('copies the room from a room:state event', () => {
+  it('copies the room, including the deck size, from a room:state event', () => {
     const state = roomReducer(undefined, roomStateReceived(roomState));
 
     expect(state.players).toHaveLength(2);
     expect(state.hostId).toBe('p1');
     expect(state.playerId).toBe('p2');
     expect(state.status).toBe('lobby');
+    expect(state.deckSize).toBe(15);
+  });
+
+  it('starts with the default deck size of 20', () => {
+    expect(roomReducer(undefined, { type: 'unknown' }).deckSize).toBe(20);
   });
 
   it('knows whether this player is the host', () => {
@@ -72,6 +78,7 @@ describe('roomSlice', () => {
 
     expect(state.code).toBeNull();
     expect(state.players).toEqual([]);
+    expect(state.deckSize).toBe(20);
   });
 
   it('stops waiting for a restored seat when the restore is finished or the player leaves', () => {

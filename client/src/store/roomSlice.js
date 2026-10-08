@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { DEFAULT_DECK_SIZE } from '@pokemon-game/shared';
 import { getSessionToRestore } from '../utils/session.js';
 
 const emptyState = {
@@ -9,6 +10,7 @@ const emptyState = {
   sessionToken: null, // private: only this browser has it
   status: null, // 'lobby' | 'playing' | 'finished'
   hostId: null,
+  deckSize: DEFAULT_DECK_SIZE, // cards per player, chosen by the host
   players: [], // [{ id, name, connected }]
   notice: null, // a message shown at the top of the page, such as an error
 };
@@ -42,6 +44,7 @@ const roomSlice = createSlice({
       state.code = room.code;
       state.status = room.status;
       state.hostId = room.hostId;
+      state.deckSize = room.deckSize;
       state.players = room.players;
       state.playerId = room.you.playerId;
     },
