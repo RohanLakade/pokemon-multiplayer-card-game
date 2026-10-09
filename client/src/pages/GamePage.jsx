@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router';
 import { STATS } from '@pokemon-game/shared';
+import AutoPlayPanel from '../components/AutoPlayPanel.jsx';
 import Button from '../components/Button.jsx';
 import Countdown from '../components/Countdown.jsx';
 import HandPanel from '../components/HandPanel.jsx';
@@ -9,10 +10,12 @@ import PageMeta from '../components/PageMeta.jsx';
 import RoundResultDialog from '../components/RoundResultDialog.jsx';
 import Scoreboard from '../components/Scoreboard.jsx';
 import StatPicker from '../components/StatPicker.jsx';
+import TimerPanel from '../components/TimerPanel.jsx';
 import { useGameActions } from '../hooks/useGameActions.js';
 import { useRoomGuard } from '../hooks/useRoomGuard.js';
 import { roundResultDismissed } from '../store/gameSlice.js';
-import { leaveRoom } from '../utils/roomActions.js';
+import { selectMyAutoPlay } from '../store/roomSlice.js';
+import { announceLeaving } from '../utils/roomActions.js';
 import { getTurnMessage } from '../utils/turnMessage.js';
 
 function GamePage() {
@@ -22,7 +25,8 @@ function GamePage() {
   const isInRoom = useRoomGuard(code);
   const game = useSelector((state) => state.game);
   const room = useSelector((state) => state.room);
-  const { isSending, chooseStat, chooseCard } = useGameActions();
+  const myAutoPlay = useSelector(selectMyAutoPlay);
+  const { isSending, chooseStat, chooseCard, setTimer, setAutoPlay } = useGameActions();
 
   const {
     phase,
@@ -56,16 +60,21 @@ function GamePage() {
 
   if (!isInRoom || phase === null) return null;
 
-  function handleLeave() {
-    if (window.confirm('Leave this game? Your seat stays open for a short while.')) {
-      leaveRoom(dispatch);
-      navigate('/');
-    }
+  // Leaving on purpose: the server keeps the seat and plays our cards for us. The saved seat
+  // stays in this browser, so the home page offers "Rejoin" while the game is running.
+  async function handleLeave() {
+    const message =
+      'Leave this game? Your cards will be played for you, and you can rejoin from the home page while the game is running.';
+    if (!window.confirm(message)) return;
+
+    await announceLeaving();
+    navigate('/');
   }
 
   const leaderName = players.find((player) => player.id === leaderId)?.name ?? '';
   const stat = STATS.find((candidate) => candidate.key === chosenStat);
   const offlineIds = room.players.filter((player) => !player.connected).map((player) => player.id);
+  const autoPlayIds = room.players.filter((player) => player.autoPlay).map((player) => player.id);
   const turnMessage = getTurnMessage({
     phase,
     canChooseStat,
@@ -100,6 +109,7 @@ function GamePage() {
           youId={room.playerId}
           phase={phase}
           offlineIds={offlineIds}
+          autoPlayIds={autoPlayIds}
         />
       </section>
 
@@ -108,8 +118,23 @@ function GamePage() {
         <p role="status" className="text-lg font-semibold">
           {turnMessage}
         </p>
-        {/* A new key for each step makes the countdown start again from the server's time */}
-        <Countdown key={`${round}-${phase}`} seconds={turnSecondsLeft} />
+        {/* Shown only while the timer is on. A new key restarts it from the server's time. */}
+        <Countdown
+          key={`${round}-${phase}-${turnSecondsLeft ?? 'off'}`}
+          seconds={turnSecondsLeft}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <TimerPanel
+          timer={room.timer}
+          turnSeconds={room.turnSeconds}
+          youId={room.playerId}
+          players={room.players}
+          disabled={isSending}
+          onToggle={setTimer}
+        />
+        <AutoPlayPanel isOn={myAutoPlay} disabled={isSending} onToggle={setAutoPlay} />
       </div>
 
       {canChooseStat && (

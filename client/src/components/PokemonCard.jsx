@@ -1,9 +1,10 @@
 import { STATS } from '@pokemon-game/shared';
 import { CATEGORY_STYLES } from '../utils/statStyles.js';
-import CardArt from './CardArt.jsx';
 import StatRow from './StatRow.jsx';
+import ZoomableArt from './ZoomableArt.jsx';
 
 // One Pokémon card in full. highlightStat is the stat chosen this round (shown with a ring).
+// Tapping the artwork opens a large view.
 function PokemonCard({ card, highlightStat = null }) {
   const category = CATEGORY_STYLES[card.category];
 
@@ -22,7 +23,7 @@ function PokemonCard({ card, highlightStat = null }) {
       </header>
 
       <div className="my-2 flex h-48 items-center justify-center rounded-xl bg-panel-light">
-        <CardArt card={card} size={176} />
+        <ZoomableArt card={card} size={176} />
       </div>
 
       <p className="mb-2 flex items-center justify-between text-sm text-slate-300">

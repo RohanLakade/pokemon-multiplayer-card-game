@@ -6,6 +6,7 @@ import gameReducer, {
   statChosen,
   cardPicked,
   privateViewUpdated,
+  turnClockUpdated,
   roundResult,
   roundResultDismissed,
   gameOver,
@@ -39,14 +40,14 @@ function startedAsLeader() {
       round: 1,
       totalRounds: 10,
       leaderId: 'p1',
-      turnSecondsLeft: 25,
+      turnSecondsLeft: null,
       you: { hand, pickedCardId: null, canChooseStat: true, canChooseCard: false },
     }),
   );
 }
 
 describe('gameSlice', () => {
-  it('holds only this player hand when a round starts', () => {
+  it('holds only this player hand when a round starts, with no clock while the timer is off', () => {
     const state = startedAsLeader();
 
     expect(state.round).toBe(1);
@@ -54,7 +55,7 @@ describe('gameSlice', () => {
     expect(state.hand).toHaveLength(2);
     expect(state.canChooseStat).toBe(true);
     expect(state.canChooseCard).toBe(false);
-    expect(state.turnSecondsLeft).toBe(25);
+    expect(state.turnSecondsLeft).toBeNull();
   });
 
   it('lets everyone choose a card once the stat is chosen', () => {
@@ -88,6 +89,14 @@ describe('gameSlice', () => {
     );
     expect(state.pickedCardId).toBe(4);
     expect(state.canChooseCard).toBe(false);
+  });
+
+  it('starts and stops the clock when the timer is switched on or off', () => {
+    let state = gameReducer(startedAsLeader(), turnClockUpdated(60));
+    expect(state.turnSecondsLeft).toBe(60);
+
+    state = gameReducer(state, turnClockUpdated(null));
+    expect(state.turnSecondsLeft).toBeNull();
   });
 
   it('keeps the scored round for the result dialog, and counts the cards left', () => {
@@ -147,6 +156,7 @@ describe('gameSlice', () => {
 
     state = gameReducer(state, gameReset());
     expect(state.phase).toBeNull();
+    expect(state.finalResult).toBeNull();
   });
 
   it('rebuilds the whole game from a full room state after reconnecting', () => {

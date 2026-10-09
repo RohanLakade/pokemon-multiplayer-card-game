@@ -44,4 +44,18 @@ describe('Scoreboard', () => {
     expect(screen.getByText('Leader · Picked')).toBeInTheDocument();
     expect(screen.getByText('Choosing… · Offline')).toBeInTheDocument();
   });
+
+  it('writes "Auto-play" next to a player whose moves are made for them', () => {
+    render(
+      <Scoreboard
+        players={players}
+        leaderId="p1"
+        youId="p1"
+        phase="choosing-cards"
+        autoPlayIds={['p2']}
+      />,
+    );
+
+    expect(screen.getByText('Choosing… · Auto-play')).toBeInTheDocument();
+  });
 });

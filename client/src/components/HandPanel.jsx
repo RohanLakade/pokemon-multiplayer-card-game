@@ -9,7 +9,7 @@ import PokemonCard from './PokemonCard.jsx';
 // The player's hand: a strip with all 5 cards, so they can be compared at a glance, and the
 // selected card in full below. Once the stat is chosen, every card in the strip shows its value
 // for that stat. The strip is a group of real radio buttons: tap, arrow keys and screen readers
-// work, and the keys 1 to 5 select a card while P plays it.
+// work, and the keys 1 to 5 select a card while P plays it (the key hint is hidden on phones).
 function HandPanel({ hand, chosenStat, pickedCardId, canChooseCard, isSending = false, onPlay }) {
   const [selectedId, setSelectedId] = useState(pickedCardId ?? hand[0]?.id ?? null);
   const selected = hand.find((card) => card.id === selectedId) ?? hand[0];
@@ -87,7 +87,7 @@ function HandPanel({ hand, chosenStat, pickedCardId, canChooseCard, isSending = 
             >
               Play {selected.displayName}
             </Button>
-            <p className="text-center text-sm text-slate-400">
+            <p className="hidden text-center text-sm text-slate-400 sm:block">
               Keys: <kbd>1</kbd> to <kbd>{hand.length}</kbd> select a card, <kbd>P</kbd> plays it.
             </p>
           </>

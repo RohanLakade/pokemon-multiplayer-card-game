@@ -6,6 +6,7 @@ import Button from '../components/Button.jsx';
 import DeckSizePicker from '../components/DeckSizePicker.jsx';
 import PageMeta from '../components/PageMeta.jsx';
 import PlayerList from '../components/PlayerList.jsx';
+import TurnSecondsPicker from '../components/TurnSecondsPicker.jsx';
 import { useRoomGuard } from '../hooks/useRoomGuard.js';
 import { noticeShown, selectIsHost } from '../store/roomSlice.js';
 import { leaveRoom } from '../utils/roomActions.js';
@@ -21,7 +22,9 @@ function LobbyPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const isInRoom = useRoomGuard(code);
-  const { players, hostId, playerId, status, deckSize } = useSelector((state) => state.room);
+  const { players, hostId, playerId, status, deckSize, turnSeconds } = useSelector(
+    (state) => state.room,
+  );
   const isHost = useSelector(selectIsHost);
   const [copied, setCopied] = useState(null); // 'code', 'link' or null
 
@@ -43,9 +46,10 @@ function LobbyPage() {
     }
   }
 
-  async function handleDeckSize(size) {
+  // Both settings are sent to the server, which tells everybody the new value
+  async function changeSetting(eventName, payload) {
     try {
-      await sendEvent('room:set-deck-size', { deckSize: size });
+      await sendEvent(eventName, payload);
     } catch (error) {
       dispatch(noticeShown(error.message));
     }
@@ -103,17 +107,31 @@ function LobbyPage() {
         </h2>
         <PlayerList players={players} hostId={hostId} youId={playerId} />
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
           {isHost ? (
-            <DeckSizePicker value={deckSize} onChange={handleDeckSize} />
+            <>
+              <DeckSizePicker
+                value={deckSize}
+                onChange={(size) => changeSetting('room:set-deck-size', { deckSize: size })}
+              />
+              <TurnSecondsPicker
+                value={turnSeconds}
+                onChange={(seconds) =>
+                  changeSetting('room:set-turn-seconds', { turnSeconds: seconds })
+                }
+              />
+            </>
           ) : (
             <p className="rounded-2xl border border-white/10 bg-panel p-4 text-slate-300">
               The host chose <strong className="text-accent">{deckSize} cards</strong> per player,
-              so the game lasts {deckSize} rounds.
+              so the game lasts {deckSize} rounds. Once somebody starts the turn timer, each step
+              lasts <strong className="text-accent">{turnSeconds} seconds</strong>.
             </p>
           )}
-          <p className="mt-2 text-sm text-slate-400">
-            Each player holds {HAND_SIZE} cards at a time. A played card is replaced from the deck.
+          <p className="text-sm text-slate-400">
+            Each player holds {HAND_SIZE} cards at a time, and a played card is replaced from the
+            deck. A game starts with the timer off: any player can start it during the game, and
+            nobody is skipped while it is off.
           </p>
         </div>
 

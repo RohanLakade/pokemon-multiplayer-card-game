@@ -4,7 +4,9 @@ import { useNavigate, useParams } from 'react-router';
 import Button from '../components/Button.jsx';
 import PageMeta from '../components/PageMeta.jsx';
 import { useRoomGuard } from '../hooks/useRoomGuard.js';
-import { leaveRoom } from '../utils/roomActions.js';
+import { noticeShown, selectIsHost } from '../store/roomSlice.js';
+import { announceLeaving, leaveRoom } from '../utils/roomActions.js';
+import { sendEvent } from '../utils/socket.js';
 
 // ['Ash'] -> "Ash", ['Ash', 'Misty'] -> "Ash and Misty", three names -> "Ash, Misty and Brock"
 function joinNames(names) {
@@ -18,26 +20,44 @@ function ResultPage() {
   const navigate = useNavigate();
   const isInRoom = useRoomGuard(code);
   const finalResult = useSelector((state) => state.game.finalResult);
-  const youId = useSelector((state) => state.room.playerId);
+  const room = useSelector((state) => state.room);
+  const isHost = useSelector(selectIsHost);
 
-  // Nothing to show yet: go back to the game
+  // "Play again" sends everybody back to the lobby of this room (the room's status becomes
+  // "lobby"). With no result to show, we go back to the game screen instead.
   useEffect(() => {
-    if (isInRoom && !finalResult) navigate(`/game/${code}`, { replace: true });
-  }, [isInRoom, finalResult, code, navigate]);
+    if (!isInRoom) return;
+    if (room.status === 'lobby') navigate(`/lobby/${code}`, { replace: true });
+    else if (!finalResult) navigate(`/game/${code}`, { replace: true });
+  }, [isInRoom, room.status, finalResult, code, navigate]);
 
   if (!isInRoom || !finalResult) return null;
 
+  const youId = room.playerId;
   const { winnerIds, scores } = finalResult;
   const winners = scores.filter((score) => winnerIds.includes(score.playerId));
   const youWon = winnerIds.includes(youId);
   const standings = [...scores].sort((a, b) => b.roundWins - a.roundWins);
+
+  // The host starts the next game. If the host is offline, any player may (the server allows it).
+  const host = room.players.find((player) => player.id === room.hostId);
+  const canPlayAgain = isHost || !host?.connected;
 
   const headline =
     winners.length === 1
       ? `${winners[0].name} wins the game!`
       : `It's a tie! ${joinNames(winners.map((winner) => winner.name))} share the win.`;
 
-  function handlePlayAgain() {
+  async function handlePlayAgain() {
+    try {
+      await sendEvent('game:play-again');
+    } catch (error) {
+      dispatch(noticeShown(error.message));
+    }
+  }
+
+  async function handleLeave() {
+    await announceLeaving();
     leaveRoom(dispatch);
     navigate('/');
   }
@@ -76,9 +96,20 @@ function ResultPage() {
         ))}
       </ol>
 
-      <Button onClick={handlePlayAgain} className="mt-8 w-full sm:w-auto">
-        Play again
-      </Button>
+      <div className="mt-8 space-y-3">
+        {canPlayAgain ? (
+          <Button onClick={handlePlayAgain} className="w-full">
+            Play again with the same players
+          </Button>
+        ) : (
+          <p role="status" className="text-slate-300">
+            Waiting for the host to start a new game…
+          </p>
+        )}
+        <Button variant="secondary" onClick={handleLeave} className="w-full">
+          Leave room
+        </Button>
+      </div>
     </section>
   );
 }

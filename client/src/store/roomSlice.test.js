@@ -4,10 +4,13 @@ import roomReducer, {
   restoreFinished,
   roomStateReceived,
   playerConnectionChanged,
+  playerAutoPlayChanged,
+  timerChanged,
   noticeShown,
   noticeCleared,
   roomLeft,
   selectIsHost,
+  selectMyAutoPlay,
 } from './roomSlice.js';
 
 const roomState = {
@@ -15,9 +18,11 @@ const roomState = {
   status: 'lobby',
   hostId: 'p1',
   deckSize: 15,
+  turnSeconds: 60,
+  timer: { on: true, startedBy: 'p1', startedByName: 'Ash' },
   players: [
-    { id: 'p1', name: 'Ash', connected: true },
-    { id: 'p2', name: 'Misty', connected: true },
+    { id: 'p1', name: 'Ash', connected: true, autoPlay: false },
+    { id: 'p2', name: 'Misty', connected: true, autoPlay: false },
   ],
   you: { playerId: 'p2' },
 };
@@ -33,7 +38,7 @@ describe('roomSlice', () => {
     expect(state.sessionToken).toBe('secret');
   });
 
-  it('copies the room, including the deck size, from a room:state event', () => {
+  it('copies the room, its settings and the timer from a room:state event', () => {
     const state = roomReducer(undefined, roomStateReceived(roomState));
 
     expect(state.players).toHaveLength(2);
@@ -41,10 +46,16 @@ describe('roomSlice', () => {
     expect(state.playerId).toBe('p2');
     expect(state.status).toBe('lobby');
     expect(state.deckSize).toBe(15);
+    expect(state.turnSeconds).toBe(60);
+    expect(state.timer).toEqual({ on: true, startedBy: 'p1', startedByName: 'Ash' });
   });
 
-  it('starts with the default deck size of 20', () => {
-    expect(roomReducer(undefined, { type: 'unknown' }).deckSize).toBe(20);
+  it('starts with the default settings and the timer off', () => {
+    const state = roomReducer(undefined, { type: 'unknown' });
+
+    expect(state.deckSize).toBe(20);
+    expect(state.turnSeconds).toBe(90);
+    expect(state.timer.on).toBe(false);
   });
 
   it('knows whether this player is the host', () => {
@@ -64,6 +75,32 @@ describe('roomSlice', () => {
     expect(state.players[0].connected).toBe(false);
   });
 
+  it('follows auto-play, and knows when this player is on auto-play', () => {
+    let state = roomReducer(undefined, roomStateReceived(roomState));
+    expect(selectMyAutoPlay({ room: state })).toBe(false);
+
+    state = roomReducer(state, playerAutoPlayChanged({ playerId: 'p2', enabled: true }));
+    expect(state.players[1].autoPlay).toBe(true);
+    expect(selectMyAutoPlay({ room: state })).toBe(true);
+
+    state = roomReducer(state, playerAutoPlayChanged({ playerId: 'p2', enabled: false }));
+    expect(selectMyAutoPlay({ room: state })).toBe(false);
+  });
+
+  it('follows the timer being started and stopped', () => {
+    let state = roomReducer(
+      undefined,
+      timerChanged({ on: true, startedBy: 'p2', startedByName: 'Misty', turnSecondsLeft: 60 }),
+    );
+    expect(state.timer).toEqual({ on: true, startedBy: 'p2', startedByName: 'Misty' });
+
+    state = roomReducer(
+      state,
+      timerChanged({ on: false, startedBy: null, startedByName: null, turnSecondsLeft: null }),
+    );
+    expect(state.timer.on).toBe(false);
+  });
+
   it('shows and clears a notice', () => {
     let state = roomReducer(undefined, noticeShown('Something happened'));
     expect(state.notice).toBe('Something happened');
@@ -79,6 +116,7 @@ describe('roomSlice', () => {
     expect(state.code).toBeNull();
     expect(state.players).toEqual([]);
     expect(state.deckSize).toBe(20);
+    expect(state.timer.on).toBe(false);
   });
 
   it('stops waiting for a restored seat when the restore is finished or the player leaves', () => {

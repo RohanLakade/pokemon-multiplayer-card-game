@@ -4,18 +4,22 @@ import { socket } from '../utils/socket.js';
 import {
   connectionChanged,
   noticeShown,
+  playerAutoPlayChanged,
   playerConnectionChanged,
   roomStateReceived,
   roomStatusChanged,
+  timerChanged,
 } from '../store/roomSlice.js';
 import {
   cardPicked,
   gameOver,
+  gameReset,
   gameStarted,
   gameSynced,
   roundResult,
   roundStarted,
   statChosen,
+  turnClockUpdated,
 } from '../store/gameSlice.js';
 
 // Listens to every event the server can send and turns each one into a Redux action.
@@ -34,7 +38,9 @@ export function useSocketEvents() {
 
       'room:state': (state) => {
         dispatch(roomStateReceived(state));
+        // A room without a game is a lobby (also after "play again"): forget the old game
         if (state.game) dispatch(gameSynced(state));
+        else dispatch(gameReset());
       },
 
       'game:started': ({ game }) => {
@@ -57,6 +63,13 @@ export function useSocketEvents() {
         dispatch(playerConnectionChanged({ playerId, connected: false })),
       'player:reconnected': ({ playerId }) =>
         dispatch(playerConnectionChanged({ playerId, connected: true })),
+      'player:auto-play-changed': (payload) => dispatch(playerAutoPlayChanged(payload)),
+
+      // Somebody started or stopped the turn timer: show who, and start or remove the countdown
+      'timer:changed': (payload) => {
+        dispatch(timerChanged(payload));
+        dispatch(turnClockUpdated(payload.turnSecondsLeft));
+      },
 
       // Most errors are shown by the code that sent the request. This one has no request.
       error: (info) => {

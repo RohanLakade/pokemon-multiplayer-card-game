@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { DEFAULT_DECK_SIZE } from '@pokemon-game/shared';
+import { DEFAULT_DECK_SIZE, DEFAULT_TURN_SECONDS } from '@pokemon-game/shared';
 import { getSessionToRestore } from '../utils/session.js';
 
 const emptyState = {
@@ -11,7 +11,9 @@ const emptyState = {
   status: null, // 'lobby' | 'playing' | 'finished'
   hostId: null,
   deckSize: DEFAULT_DECK_SIZE, // cards per player, chosen by the host
-  players: [], // [{ id, name, connected }]
+  turnSeconds: DEFAULT_TURN_SECONDS, // seconds per step once the timer is on, chosen by the host
+  timer: { on: false, startedBy: null, startedByName: null }, // the optional turn timer
+  players: [], // [{ id, name, connected, autoPlay }]
   notice: null, // a message shown at the top of the page, such as an error
 };
 
@@ -45,6 +47,8 @@ const roomSlice = createSlice({
       state.status = room.status;
       state.hostId = room.hostId;
       state.deckSize = room.deckSize;
+      state.turnSeconds = room.turnSeconds;
+      state.timer = room.timer ?? emptyState.timer;
       state.players = room.players;
       state.playerId = room.you.playerId;
     },
@@ -57,6 +61,18 @@ const roomSlice = createSlice({
       const { playerId, connected } = action.payload;
       const player = state.players.find((candidate) => candidate.id === playerId);
       if (player) player.connected = connected;
+    },
+
+    playerAutoPlayChanged(state, action) {
+      const { playerId, enabled } = action.payload;
+      const player = state.players.find((candidate) => candidate.id === playerId);
+      if (player) player.autoPlay = enabled;
+    },
+
+    // The server's timer:changed event: somebody started or stopped the turn timer
+    timerChanged(state, action) {
+      const { on, startedBy, startedByName } = action.payload;
+      state.timer = { on, startedBy, startedByName };
     },
 
     noticeShown(state, action) {
@@ -80,6 +96,8 @@ export const {
   roomStateReceived,
   roomStatusChanged,
   playerConnectionChanged,
+  playerAutoPlayChanged,
+  timerChanged,
   noticeShown,
   noticeCleared,
   roomLeft,
@@ -87,5 +105,9 @@ export const {
 
 export const selectIsHost = (state) =>
   state.room.playerId !== null && state.room.hostId === state.room.playerId;
+
+// Is this player on auto-play right now?
+export const selectMyAutoPlay = (state) =>
+  state.room.players.find((player) => player.id === state.room.playerId)?.autoPlay === true;
 
 export default roomSlice.reducer;

@@ -12,7 +12,7 @@ const initialState = {
   pickedCardId: null, // the card this player picked this round, if any
   canChooseStat: false,
   canChooseCard: false,
-  turnSecondsLeft: null, // seconds the server's turn clock had left when the last event arrived
+  turnSecondsLeft: null, // seconds the server's turn clock had left; null while the timer is off
   lastResult: null, // the round that was just scored; the screen shows it until it closes
   finalResult: null, // { winnerIds, scores } once the game is over
 };
@@ -79,6 +79,11 @@ const gameSlice = createSlice({
       applyPrivateView(state, action.payload);
     },
 
+    // The turn timer was switched on (a fresh clock) or off (null)
+    turnClockUpdated(state, action) {
+      state.turnSecondsLeft = action.payload ?? null;
+    },
+
     roundResult(state, action) {
       state.lastResult = action.payload;
 
@@ -127,6 +132,7 @@ export const {
   statChosen,
   cardPicked,
   privateViewUpdated,
+  turnClockUpdated,
   roundResult,
   roundResultDismissed,
   gameOver,

@@ -41,6 +41,19 @@ export async function rejoinRoom(dispatch, { code, sessionToken }) {
   );
 }
 
+// Tells the server that we leave on PURPOSE. In a running game it keeps our seat, switches
+// auto-play on for us (nobody waits for our turns) and remembers that we left. A dropped
+// connection or a closed tab does none of this. Does nothing when the connection is already gone.
+export async function announceLeaving() {
+  if (!socket.connected) return;
+
+  try {
+    await sendEvent('room:leave');
+  } catch {
+    // The server did not answer: we are leaving anyway
+  }
+}
+
 // Drops the connection and the screen state but KEEPS the saved seat. The home page uses this,
 // so that a game that is still running can be rejoined from the "Rejoin" banner.
 export function releaseRoom(dispatch) {
@@ -49,7 +62,7 @@ export function releaseRoom(dispatch) {
   dispatch(gameReset());
 }
 
-// Leaving on purpose also forgets the saved seat.
+// Leaving for good also forgets the saved seat.
 export function leaveRoom(dispatch) {
   clearSession();
   releaseRoom(dispatch);
