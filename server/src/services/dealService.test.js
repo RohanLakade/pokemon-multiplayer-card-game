@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { DECK_RECIPES, DECK_SIZES, TIERS } from '@pokemon-game/shared';
 import { getAllCards } from './cardsService.js';
+import { getCardFeatures, getStatGap } from './deckBalance.js';
 import { dealDecks } from './dealService.js';
 import { GameRuleError } from './gameErrors.js';
 
 // The biggest game: dealing for it proves the roster is big enough
 const LARGEST_GAME = 8;
+const GAMES_PER_SETUP = 5;
 
 function totalBst(deck) {
   return deck.reduce((sum, card) => sum + card.bst, 0);
@@ -16,27 +18,34 @@ describe('dealDecks with the real card roster', () => {
     for (const playerCount of [2, 5, LARGEST_GAME]) {
       it(`deals ${playerCount} fair decks of ${deckSize} cards`, async () => {
         const cards = await getAllCards();
-        const decks = dealDecks(cards, playerCount, deckSize);
+        const features = getCardFeatures(cards);
 
-        expect(decks).toHaveLength(playerCount);
+        for (let game = 0; game < GAMES_PER_SETUP; game += 1) {
+          const decks = dealDecks(cards, playerCount, deckSize);
 
-        // Every deck follows the recipe: the right number of cards from each tier
-        for (const deck of decks) {
-          expect(deck).toHaveLength(deckSize);
-          for (const tier of TIERS) {
-            const inTier = deck.filter((card) => card.tier === tier);
-            expect(inTier).toHaveLength(DECK_RECIPES[deckSize][tier]);
+          expect(decks).toHaveLength(playerCount);
+
+          // Every deck follows the recipe: the right number of cards from each tier
+          for (const deck of decks) {
+            expect(deck).toHaveLength(deckSize);
+            for (const tier of TIERS) {
+              const inTier = deck.filter((card) => card.tier === tier);
+              expect(inTier).toHaveLength(DECK_RECIPES[deckSize][tier]);
+            }
           }
+
+          // No card appears twice in the whole game
+          const dealt = decks.flat();
+          expect(new Set(dealt.map((card) => card.id)).size).toBe(dealt.length);
+
+          // The strongest and weakest deck are close in total strength...
+          const totals = decks.map(totalBst);
+          const average = totals.reduce((sum, total) => sum + total, 0) / totals.length;
+          expect((Math.max(...totals) - Math.min(...totals)) / average).toBeLessThan(0.08);
+
+          // ...and in every single stat, Rank included
+          expect(getStatGap(decks, features)).toBeLessThan(0.15);
         }
-
-        // No card appears twice in the whole game
-        const dealt = decks.flat();
-        expect(new Set(dealt.map((card) => card.id)).size).toBe(dealt.length);
-
-        // The strongest and weakest deck are close in total strength
-        const totals = decks.map(totalBst);
-        const average = totals.reduce((sum, total) => sum + total, 0) / totals.length;
-        expect((Math.max(...totals) - Math.min(...totals)) / average).toBeLessThan(0.08);
       });
     }
   }
@@ -67,7 +76,21 @@ describe('dealDecks rules', () => {
     let id = 1;
     for (const [tierIndex, tier] of TIERS.entries()) {
       for (let i = 0; i < 20; i += 1) {
-        roster.push({ id, speciesId: 1, tier, bst: 700 - tierIndex * 100 - i });
+        roster.push({
+          id,
+          speciesId: 1,
+          tier,
+          bst: 700 - tierIndex * 100 - i,
+          stats: {
+            hp: 50 + i,
+            attack: 60 + tierIndex * 10,
+            defense: 50,
+            specialAttack: 40 + i,
+            specialDefense: 50,
+            speed: 30 + tierIndex * i,
+            rank: id,
+          },
+        });
         id += 1;
       }
     }
