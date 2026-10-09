@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   DECK_SIZES,
+  TURN_SECONDS_OPTIONS,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   DEFAULT_CARDS_LIMIT,
@@ -74,6 +75,27 @@ export const setDeckSizePayloadSchema = z.object({
     .number()
     .int()
     .refine((value) => DECK_SIZES.includes(value), `Choose one of: ${DECK_SIZES.join(', ')}`),
+});
+
+// room:set-turn-seconds. Only the host may send it, and only in the lobby.
+export const setTurnSecondsPayloadSchema = z.object({
+  turnSeconds: z
+    .number()
+    .int()
+    .refine(
+      (value) => TURN_SECONDS_OPTIONS.includes(value),
+      `Choose one of: ${TURN_SECONDS_OPTIONS.join(', ')}`,
+    ),
+});
+
+// player:set-auto-play. A player switches their own auto-play on or off.
+export const setAutoPlayPayloadSchema = z.object({
+  enabled: z.boolean(),
+});
+
+// timer:set. Any player may switch the turn timer on, during a running game.
+export const setTimerPayloadSchema = z.object({
+  enabled: z.boolean(),
 });
 
 // round:choose-stat. Who is choosing is never in the payload: the server knows the socket.

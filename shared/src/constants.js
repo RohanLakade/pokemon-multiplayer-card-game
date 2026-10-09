@@ -8,6 +8,15 @@ export const HAND_SIZE = 5;
 export const DECK_SIZES = [10, 15, 20];
 export const DEFAULT_DECK_SIZE = 20;
 
+// The turn timer is optional: a game starts with it off, and any player can switch it on.
+// The host chooses in the lobby how long each step (choosing a stat, then everyone choosing
+// a card) lasts once the timer is on.
+export const TURN_SECONDS_OPTIONS = [30, 60, 90];
+export const DEFAULT_TURN_SECONDS = 90;
+
+// A player whose turn ran out this many times in a row is switched to auto-play
+export const MISSED_TURNS_BEFORE_AUTO_PLAY = 2;
+
 // Room codes: 6 characters from an alphabet without look-alikes (no 0/O and no 1/I).
 // 32 characters over 6 places is about a billion possible codes.
 export const ROOM_CODE_LENGTH = 6;
@@ -21,8 +30,3 @@ export const MAX_CARDS_LIMIT = 100;
 export const PLAYER_NAME_MIN_LENGTH = 2;
 export const PLAYER_NAME_MAX_LENGTH = 20;
 export const SESSION_TOKEN_LENGTH = 64;
-
-// Turn timer: each step (choosing a stat, then everyone choosing a card) gets this many
-// seconds, whether the player is online or not. The round result stays on screen for about
-// 5 seconds of the next step, so 25 leaves players around 20 seconds.
-export const TURN_SECONDS = 25;

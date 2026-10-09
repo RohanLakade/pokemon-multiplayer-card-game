@@ -1,5 +1,5 @@
 import { getPublicState, getPrivateView, getFinalResult } from '../services/matchService.js';
-import { toPublicPlayer } from '../services/lobbyService.js';
+import { findPlayer, toPublicPlayer } from '../services/lobbyService.js';
 import { getTurnSecondsLeft } from '../services/turnService.js';
 
 // Sends one event to every connected player in the room, except "exceptPlayerId" if given.
@@ -14,6 +14,17 @@ export function emitToEachPlayer(io, room, eventName, buildPayload, exceptPlayer
   }
 }
 
+// Is the turn timer on, and who switched it on? Everyone in the room may know this.
+export function getTimerInfo(room) {
+  const starter = room.timerStartedBy ? findPlayer(room, room.timerStartedBy) : null;
+
+  return {
+    on: room.timerOn,
+    startedBy: starter?.id ?? null,
+    startedByName: starter?.name ?? null,
+  };
+}
+
 // Everything a player needs to draw the room from scratch (also used after reconnecting).
 export function buildRoomState(room, playerId) {
   return {
@@ -21,6 +32,8 @@ export function buildRoomState(room, playerId) {
     status: room.status,
     hostId: room.hostId,
     deckSize: room.deckSize,
+    turnSeconds: room.turnSeconds,
+    timer: getTimerInfo(room),
     players: room.players.map(toPublicPlayer),
     you: { playerId },
     game: room.game ? getPublicState(room.game) : null,
@@ -35,6 +48,7 @@ export function sendRoomState(io, room) {
 }
 
 // A new round begins. Each player receives only THEIR OWN hand.
+// turnSecondsLeft is null while the timer is off.
 export function sendRoundStarted(io, room) {
   const { game } = room;
 

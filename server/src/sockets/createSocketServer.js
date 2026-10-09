@@ -20,15 +20,15 @@ export function createSocketServer(httpServer, { config, cards }) {
   const eventLimiter = createRateCounter({ limit: 30, windowMs: 10 * 1000 });
   const failedJoins = createRateCounter({ limit: 10, windowMs: 10 * 60 * 1000 });
 
-  // One game flow serves every room: it knows how to run turns and the turn timer
-  const flow = createGameFlow({ turnSeconds: config.turnSeconds });
+  // One game flow serves every room: it knows how to run turns, the clock and auto-play
+  const flow = createGameFlow({ cards, turnSeconds: config.turnSeconds });
 
   io.on('connection', (socket) => {
     const clientIp = getClientIp(socket.request, config.trustProxy);
     const on = createEventRegistrar(socket, eventLimiter);
 
     registerRoomHandlers({ io, socket, on, failedJoins, clientIp, flow });
-    registerGameHandlers({ io, socket, on, cards, flow });
+    registerGameHandlers({ io, socket, on, flow });
   });
 
   return io;

@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import {
   DEFAULT_DECK_SIZE,
+  DEFAULT_TURN_SECONDS,
   MAX_PLAYERS,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
@@ -9,10 +10,16 @@ import { clearTurnTimer } from './turnService.js';
 
 const MAX_ROOMS = 500;
 const ROOM_LIFETIME_MS = 2 * 60 * 60 * 1000; // rooms are cleaned up 2 hours after creation
+// A room where nobody has been connected for this long is deleted. (If every player LEFT on
+// purpose, the room is deleted at once, see roomHandlers.js. This covers players who just
+// disconnected, such as one person refreshing alone, so a refresh cannot destroy a game.)
+const ABANDONED_ROOM_MS = 10 * 60 * 1000;
 
 // Rooms live in memory only: code -> room.
 // room = { code, createdAt, status: 'lobby' | 'playing' | 'finished', hostId, players,
-//          deckSize (chosen by the host), game, turnTimer, turnEndsAt, turnStep }
+//          deckSize and turnSeconds (chosen by the host), game, emptySince,
+//          timerOn and timerStartedBy (the optional turn timer),
+//          turnTimer, turnEndsAt, turnStep (the running clock) }
 const rooms = new Map();
 
 // crypto.randomInt is unpredictable, so codes cannot be guessed from earlier ones.
@@ -30,9 +37,13 @@ function discardRoom(room) {
   rooms.delete(room.code);
 }
 
+function isAbandoned(room, now) {
+  return room.emptySince !== null && now - room.emptySince > ABANDONED_ROOM_MS;
+}
+
 function removeExpiredRooms(now) {
   for (const room of rooms.values()) {
-    if (now - room.createdAt > ROOM_LIFETIME_MS) discardRoom(room);
+    if (now - room.createdAt > ROOM_LIFETIME_MS || isAbandoned(room, now)) discardRoom(room);
   }
 }
 
@@ -51,7 +62,11 @@ export function createRoom(now = Date.now()) {
     hostId: null,
     players: [],
     deckSize: DEFAULT_DECK_SIZE,
+    turnSeconds: DEFAULT_TURN_SECONDS,
     game: null,
+    emptySince: null,
+    timerOn: false,
+    timerStartedBy: null,
     turnTimer: null,
     turnEndsAt: null,
     turnStep: null,
@@ -60,13 +75,25 @@ export function createRoom(now = Date.now()) {
   return room;
 }
 
-export function findRoom(code) {
-  return rooms.get(code) ?? null;
+// Finds a room. A room nobody has come back to for 10 minutes is forgotten here.
+export function findRoom(code, now = Date.now()) {
+  const room = rooms.get(code);
+  if (room && isAbandoned(room, now)) {
+    discardRoom(room);
+    return null;
+  }
+  return room ?? null;
 }
 
 export function deleteRoom(code) {
   const room = rooms.get(code);
   if (room) discardRoom(room);
+}
+
+// Remembers since when nobody has been connected to a room (or forgets it when someone is).
+// Call it whenever a player connects or disconnects.
+export function touchPresence(room, now = Date.now()) {
+  room.emptySince = room.players.some((player) => player.connected) ? null : now;
 }
 
 // What the REST API may show about a room. Players' private data is never included.

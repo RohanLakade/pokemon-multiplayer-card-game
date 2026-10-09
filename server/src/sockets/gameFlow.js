@@ -1,4 +1,7 @@
-import { STAT_KEYS, TURN_SECONDS } from '@pokemon-game/shared';
+import { MISSED_TURNS_BEFORE_AUTO_PLAY } from '@pokemon-game/shared';
+import { createAutoPlayer } from '../services/autoPlayService.js';
+import { GameRuleError } from '../services/gameErrors.js';
+import { findPlayer } from '../services/lobbyService.js';
 import {
   PHASES,
   chooseCard,
@@ -7,13 +10,10 @@ import {
   getPendingPlayerIds,
   getPrivateView,
   getPublicState,
-  getRandomCardId,
 } from '../services/matchService.js';
-import { findPlayer } from '../services/lobbyService.js';
 import { findRoom } from '../services/roomsService.js';
 import { clearTurnTimer, getTurnSecondsLeft, setTurnTimer } from '../services/turnService.js';
-import { pickRandom } from '../utils/random.js';
-import { emitToEachPlayer, sendRoundStarted } from './emitters.js';
+import { emitToEachPlayer, getTimerInfo, sendRoundStarted } from './emitters.js';
 
 function toScores(game) {
   return getPublicState(game).players.map(({ id, name, roundWins }) => ({
@@ -23,18 +23,25 @@ function toScores(game) {
   }));
 }
 
-// Runs a game: applies moves, sends the events, and keeps the turn clock going.
-// Every move, whether a player made it or the timer made it for them, goes through here.
-export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
-  const turnMs = turnSeconds * 1000;
+// Runs a game: applies moves, sends the events, keeps the optional turn clock going and makes
+// the moves of players on auto-play. Every move, whether a player, the timer or auto-play made
+// it, goes through here. "cards" is the card roster. "turnSeconds" is optional and replaces the
+// room's setting (tests use 1 second turns).
+export function createGameFlow({ cards, turnSeconds: turnSecondsOverride } = {}) {
+  const autoPlayer = createAutoPlayer(cards);
 
-  // Makes sure a clock is running for the current step of the game. Every step gets the full
-  // time. If the step already has a running clock it is left alone, so nobody can stretch or
-  // shorten it by disconnecting and reconnecting.
+  function getTurnMs(room) {
+    return (turnSecondsOverride ?? room.turnSeconds) * 1000;
+  }
+
+  // Makes sure the right clock state exists for the current step of the game:
+  //   timer off or game over: no clock at all (the game simply waits)
+  //   timer on: every step gets the full time. A clock that already runs for this step is left
+  //   alone, so nobody can stretch or shorten it by disconnecting and reconnecting.
   function startTurn(io, room) {
     const { game } = room;
 
-    if (game.phase === PHASES.FINISHED) {
+    if (game.phase === PHASES.FINISHED || !room.timerOn) {
       clearTurnTimer(room);
       return;
     }
@@ -42,7 +49,7 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
     const step = `${game.round}:${game.phase}`;
     if (room.turnStep === step && room.turnTimer) return;
 
-    setTurnTimer(room, step, turnMs, () => {
+    setTurnTimer(room, step, getTurnMs(room), () => {
       try {
         handleTimeout(io, room);
       } catch (error) {
@@ -51,8 +58,36 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
     });
   }
 
-  // Time is up: choose a stat for a leader who did not, and a random card for everyone who has
-  // not picked one yet. This is the same for players who are online and offline.
+  function setAutoPlay(io, room, player, enabled) {
+    if (player.autoPlay === enabled) return;
+
+    player.autoPlay = enabled;
+    if (!enabled) player.missedTurns = 0;
+    emitToEachPlayer(io, room, 'player:auto-play-changed', () => ({
+      playerId: player.id,
+      enabled,
+    }));
+  }
+
+  // The turn ran out for this player: count it, and after enough in a row switch them to auto-play
+  function registerMissedTurn(io, room, player) {
+    player.missedTurns += 1;
+    if (player.missedTurns >= MISSED_TURNS_BEFORE_AUTO_PLAY) {
+      setAutoPlay(io, room, player, true);
+    }
+  }
+
+  function chooseStatFor(room, player) {
+    return autoPlayer.chooseStat(getPrivateView(room.game, player.id).hand);
+  }
+
+  function chooseCardFor(room, player) {
+    const { hand } = getPrivateView(room.game, player.id);
+    return autoPlayer.chooseCardId(hand, room.game.chosenStat);
+  }
+
+  // Time is up: choose the stat for a leader who did not, and a card for everyone who has not
+  // picked one. The choice is the smart one, the same for players who are online and offline.
   function handleTimeout(io, room) {
     room.turnTimer = null; // this timer has fired
     if (findRoom(room.code) !== room) return;
@@ -61,13 +96,17 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
 
     if (game.phase === PHASES.CHOOSING_STAT) {
       const leader = findPlayer(room, game.leaderId);
-      performChooseStat(io, room, leader, pickRandom(STAT_KEYS));
+      registerMissedTurn(io, room, leader);
+      performChooseStat(io, room, leader, chooseStatFor(room, leader));
     } else if (game.phase === PHASES.CHOOSING_CARDS) {
       for (const playerId of getPendingPlayerIds(game)) {
-        const cardId = getRandomCardId(game, playerId);
-        performChooseCard(io, room, findPlayer(room, playerId), cardId);
+        const player = findPlayer(room, playerId);
+        registerMissedTurn(io, room, player);
+        performChooseCard(io, room, player, chooseCardFor(room, player));
       }
     }
+
+    runAutoPlayers(io, room);
   }
 
   function performChooseStat(io, room, player, stat) {
@@ -107,29 +146,101 @@ export function createGameFlow({ turnSeconds = TURN_SECONDS } = {}) {
     }
   }
 
+  // Players on auto-play move at once, so nobody waits for the clock. Each move can advance the
+  // game and make another auto-play player the one we wait for, so we keep going.
+  function runAutoPlayers(io, room) {
+    while (room.game.phase !== PHASES.FINISHED) {
+      const playerId = getPendingPlayerIds(room.game).find((id) => findPlayer(room, id)?.autoPlay);
+      if (!playerId) return;
+
+      const player = findPlayer(room, playerId);
+      if (room.game.phase === PHASES.CHOOSING_STAT) {
+        performChooseStat(io, room, player, chooseStatFor(room, player));
+      } else {
+        performChooseCard(io, room, player, chooseCardFor(room, player));
+      }
+    }
+  }
+
+  // Can this player stop the timer? The player who started it can. If that player is offline or
+  // has left, anyone can, so the timer can never get stuck on.
+  function canStopTimer(room, player) {
+    const starter = room.timerStartedBy ? findPlayer(room, room.timerStartedBy) : null;
+    const starterIsHere = starter && starter.connected && !starter.hasLeft;
+    return !starterIsHere || starter.id === player.id;
+  }
+
   return {
-    startGame(io, room, cards) {
+    startGame(io, room) {
       room.game = createGame(
         room.players.map(({ id, name }) => ({ id, name })),
         cards,
         room.deckSize,
       );
       room.status = 'playing';
+      room.timerOn = false; // every game starts without a timer
+      room.timerStartedBy = null;
 
-      startTurn(io, room); // start the clock first, so the events can tell players the time left
+      startTurn(io, room);
       emitToEachPlayer(io, room, 'game:started', () => ({ game: getPublicState(room.game) }));
       sendRoundStarted(io, room);
     },
 
+    // A move made by the player themselves also clears their missed turns
     handleChooseStat(io, room, player, stat) {
+      player.missedTurns = 0;
       performChooseStat(io, room, player, stat);
+      runAutoPlayers(io, room);
     },
 
     handleChooseCard(io, room, player, cardId) {
+      player.missedTurns = 0;
       performChooseCard(io, room, player, cardId);
+      runAutoPlayers(io, room);
     },
 
-    // A player just went offline. Their time keeps running: they may come back and choose.
+    // The player switched auto-play on or off, or left on purpose (which switches it on)
+    handleSetAutoPlay(io, room, player, enabled) {
+      setAutoPlay(io, room, player, enabled);
+      if (enabled) runAutoPlayers(io, room);
+    },
+
+    // Any player may switch the turn timer on. It then runs for everybody, with a fresh full
+    // clock for the current step. Only the player who started it may stop it.
+    handleSetTimer(io, room, player, enabled) {
+      if (room.status !== 'playing') {
+        throw new GameRuleError('WRONG_PHASE', 'That action is not allowed right now');
+      }
+
+      if (enabled) {
+        if (room.timerOn) {
+          throw new GameRuleError('TIMER_ALREADY_ON', 'The timer is already running');
+        }
+        room.timerOn = true;
+        room.timerStartedBy = player.id;
+      } else {
+        if (!room.timerOn) {
+          throw new GameRuleError('TIMER_NOT_ON', 'The timer is not running');
+        }
+        if (!canStopTimer(room, player)) {
+          throw new GameRuleError(
+            'NOT_TIMER_STARTER',
+            'Only the player who started the timer can stop it',
+          );
+        }
+        room.timerOn = false;
+        room.timerStartedBy = null;
+      }
+
+      startTurn(io, room); // starts a fresh clock, or removes the running one
+      emitToEachPlayer(io, room, 'timer:changed', () => ({
+        ...getTimerInfo(room),
+        turnSecondsLeft: getTurnSecondsLeft(room),
+      }));
+    },
+
+    // A player disconnected without choosing to leave. If the timer is on, their time keeps
+    // running: they may come back and choose.
     handlePlayerAway(io, room) {
       if (!room.game || room.game.phase === PHASES.FINISHED) return;
 

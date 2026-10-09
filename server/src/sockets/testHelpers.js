@@ -44,8 +44,9 @@ export function createTestKit() {
   }
 
   // Two players in a room, the host (Alice) picks the deck size, game started, first round dealt.
-  // A deck of 10 cards keeps tests quick.
-  async function startTwoPlayerGame(url, deckSize = 10) {
+  // A deck of 10 cards keeps tests quick. A game starts with the timer off: pass startTimer: true
+  // to have the host switch it on straight away.
+  async function startTwoPlayerGame(url, { deckSize = 10, startTimer = false } = {}) {
     const room = createRoom();
     const alice = await joinNewPlayer(url, room.code, 'Alice');
     const bob = await joinNewPlayer(url, room.code, 'Bob');
@@ -61,6 +62,11 @@ export function createTestKit() {
     const rounds = { [alice.playerId]: await aliceRound, [bob.playerId]: await bobRound };
     const leader = rounds[alice.playerId].leaderId === alice.playerId ? alice : bob;
     const other = leader === alice ? bob : alice;
+
+    if (startTimer) {
+      const timer = await emitWithAck(alice.socket, 'timer:set', { enabled: true });
+      expect(timer.ok).toBe(true);
+    }
 
     return { room, alice, bob, rounds, leader, other };
   }

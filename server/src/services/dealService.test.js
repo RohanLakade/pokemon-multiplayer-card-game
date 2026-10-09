@@ -29,10 +29,9 @@ describe('dealDecks with the real card roster', () => {
           }
         }
 
-        // No card, and no Pokémon species, appears twice in the whole game
+        // No card appears twice in the whole game
         const dealt = decks.flat();
         expect(new Set(dealt.map((card) => card.id)).size).toBe(dealt.length);
-        expect(new Set(dealt.map((card) => card.speciesId)).size).toBe(dealt.length);
 
         // The strongest and weakest deck are close in total strength
         const totals = decks.map(totalBst);
@@ -60,6 +59,23 @@ describe('dealDecks rules', () => {
     }));
 
     expect(() => dealDecks(tinyRoster, 2, 10)).toThrow(/not enough tier/i);
+  });
+
+  it('can deal several forms of the same Pokémon in one game', () => {
+    // Every card has speciesId 1: they are all "forms" of one Pokémon, but each is its own card
+    const roster = [];
+    let id = 1;
+    for (const [tierIndex, tier] of TIERS.entries()) {
+      for (let i = 0; i < 20; i += 1) {
+        roster.push({ id, speciesId: 1, tier, bst: 700 - tierIndex * 100 - i });
+        id += 1;
+      }
+    }
+
+    const decks = dealDecks(roster, 2, 10);
+
+    expect(decks.flat()).toHaveLength(20);
+    expect(new Set(decks.flat().map((card) => card.id)).size).toBe(20);
   });
 
   it('deals different decks each time', async () => {

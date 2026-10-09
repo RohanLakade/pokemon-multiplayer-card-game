@@ -69,13 +69,14 @@ describe('REST API', () => {
       }
     });
 
-    it('returns one card by id, including a Mega form that keeps its species rank', async () => {
+    it('returns one card by id, and a form ranks by its own id', async () => {
       const venusaur = await getJson('/api/cards/3');
       const mega = await getJson('/api/cards/10033');
 
       expect(venusaur.body.name).toBe('venusaur');
+      expect(venusaur.body.stats.rank).toBe(3);
       expect(mega.body.name).toBe('venusaur-mega');
-      expect(mega.body.stats.rank).toBe(3);
+      expect(mega.body.stats.rank).toBe(10033);
     });
 
     it('answers 404 for an unknown card and 400 for a bad id', async () => {

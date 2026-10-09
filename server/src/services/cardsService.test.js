@@ -25,3 +25,30 @@ describe('cards with tiers', () => {
     }
   });
 });
+
+describe('rank is the id of the card itself', () => {
+  it('gives Venusaur rank 3 and Mega Venusaur rank 10033', async () => {
+    expect((await findCardById(3)).stats.rank).toBe(3);
+    expect((await findCardById(10033)).stats.rank).toBe(10033);
+  });
+
+  it('gives every card its own id as rank', async () => {
+    const cards = await getAllCards();
+
+    for (const card of cards) {
+      expect(card.stats.rank).toBe(card.id);
+    }
+  });
+
+  it('ranks every form after every base Pokémon, so a base card wins a Rank round', async () => {
+    const cards = await getAllCards();
+    const baseRanks = cards
+      .filter((card) => card.category === 'base')
+      .map((card) => card.stats.rank);
+    const formRanks = cards
+      .filter((card) => card.category !== 'base')
+      .map((card) => card.stats.rank);
+
+    expect(Math.max(...baseRanks)).toBeLessThan(Math.min(...formRanks));
+  });
+});

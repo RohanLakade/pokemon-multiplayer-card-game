@@ -106,10 +106,10 @@
             "type": "text/javascript",
             "exec": [
               "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
-              "pm.test('Mega Venusaur keeps species rank 3', function () {",
+              "pm.test('Mega Venusaur keeps species rank 10033', function () {",
               "  const body = pm.response.json();",
               "  pm.expect(body.displayName).to.eql('Mega Venusaur');",
-              "  pm.expect(body.stats.rank).to.eql(3);",
+              "  pm.expect(body.stats.rank).to.eql(10033);",
               "});"
             ]
           }

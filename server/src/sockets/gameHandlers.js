@@ -2,6 +2,8 @@ import {
   MIN_PLAYERS,
   chooseCardPayloadSchema,
   chooseStatPayloadSchema,
+  setAutoPlayPayloadSchema,
+  setTimerPayloadSchema,
 } from '@pokemon-game/shared';
 import { getPrivateView } from '../services/matchService.js';
 import { GameRuleError } from '../services/gameErrors.js';
@@ -13,9 +15,16 @@ function requireGame(room) {
   }
 }
 
+function requirePlaying(room) {
+  requireGame(room);
+  if (room.status !== 'playing') {
+    throw new GameRuleError('WRONG_PHASE', 'That action is not allowed right now');
+  }
+}
+
 // These handlers only check who is asking and whether it is allowed.
-// Running the game (events, scoring, the turn timer) is the job of "flow" (gameFlow.js).
-export function registerGameHandlers({ io, socket, on, cards, flow }) {
+// Running the game (events, scoring, the turn timer, auto-play) is the job of "flow" (gameFlow.js).
+export function registerGameHandlers({ io, socket, on, flow }) {
   on('game:start', {}, () => {
     const { room, player } = getContext(socket);
 
@@ -29,7 +38,7 @@ export function registerGameHandlers({ io, socket, on, cards, flow }) {
       throw new GameRuleError('NOT_ENOUGH_PLAYERS', `At least ${MIN_PLAYERS} players are needed`);
     }
 
-    flow.startGame(io, room, cards);
+    flow.startGame(io, room);
     return {};
   });
 
@@ -47,5 +56,23 @@ export function registerGameHandlers({ io, socket, on, cards, flow }) {
 
     flow.handleChooseCard(io, room, player, cardId);
     return { you: getPrivateView(room.game, player.id) };
+  });
+
+  // A player steps away on purpose: while it is on, their moves are made for them at once
+  on('player:set-auto-play', { schema: setAutoPlayPayloadSchema }, ({ enabled }) => {
+    const { room, player } = getContext(socket);
+    requirePlaying(room);
+
+    flow.handleSetAutoPlay(io, room, player, enabled);
+    return { you: getPrivateView(room.game, player.id) };
+  });
+
+  // Any player starts the turn timer. Only the player who started it can stop it.
+  on('timer:set', { schema: setTimerPayloadSchema }, ({ enabled }) => {
+    const { room, player } = getContext(socket);
+    requirePlaying(room);
+
+    flow.handleSetTimer(io, room, player, enabled);
+    return {};
   });
 }

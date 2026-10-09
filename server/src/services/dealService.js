@@ -1,5 +1,5 @@
 import { DECK_RECIPES, TIERS } from '@pokemon-game/shared';
-import { defaultRandom, pickRandom, shuffle } from '../utils/random.js';
+import { defaultRandom, shuffle } from '../utils/random.js';
 import { GameRuleError } from './gameErrors.js';
 
 // If the strongest and weakest deck differ by more than 6%, the cards are dealt again
@@ -13,41 +13,27 @@ function snakeIndex(position, playerCount) {
   return lap % 2 === 0 ? offset : playerCount - 1 - offset;
 }
 
-// Picks the cards of one tier for the whole game. The Pokémon are chosen first, so every Pokémon
-// has the same chance however many forms it has, then one random form of each is used.
-function pickTierCards(allCards, tier, needed, usedSpecies, random) {
-  const formsBySpecies = new Map();
-  for (const card of allCards) {
-    if (card.tier !== tier || usedSpecies.has(card.speciesId)) continue;
+// Picks the cards of one tier for the whole game. The tier is shuffled first, so every card has
+// the same chance. Every form (Venusaur, Mega Venusaur, Gigantamax Venusaur) is its own card.
+// A card is only ever picked once, because it appears once in the shuffled list.
+function pickTierCards(allCards, tier, needed, random) {
+  const inTier = allCards.filter((card) => card.tier === tier);
 
-    const forms = formsBySpecies.get(card.speciesId) ?? [];
-    forms.push(card);
-    formsBySpecies.set(card.speciesId, forms);
-  }
-
-  if (formsBySpecies.size < needed) {
+  if (inTier.length < needed) {
     throw new GameRuleError(
       'NOT_ENOUGH_CARDS',
       `There are not enough tier ${tier} cards for this game`,
     );
   }
-
-  return shuffle([...formsBySpecies.values()], random)
-    .slice(0, needed)
-    .map((forms) => pickRandom(forms, random));
+  return shuffle(inTier, random).slice(0, needed);
 }
 
 // One attempt at dealing every player a deck that follows the recipe.
 function dealOnce(allCards, playerCount, recipe, random) {
-  const usedSpecies = new Set();
   const decks = Array.from({ length: playerCount }, () => []);
 
-  // Strongest tier first: it has the fewest cards, so it should choose first
   for (const tier of TIERS) {
-    const chosen = pickTierCards(allCards, tier, recipe[tier] * playerCount, usedSpecies, random);
-
-    // One card per Pokémon species in a whole game
-    for (const card of chosen) usedSpecies.add(card.speciesId);
+    const chosen = pickTierCards(allCards, tier, recipe[tier] * playerCount, random);
 
     // Best card first, dealt in snake order, so every deck gets a similar total
     chosen
@@ -67,7 +53,7 @@ function getBstSpread(decks) {
 }
 
 // Deals one hidden deck of "deckSize" cards to every player. Every deck has the same number of
-// cards from each tier, and no Pokémon species appears twice in the whole game.
+// cards from each tier, and no card appears twice in the whole game.
 export function dealDecks(allCards, playerCount, deckSize, random = defaultRandom) {
   const recipe = DECK_RECIPES[deckSize];
   if (!recipe) {

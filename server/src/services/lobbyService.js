@@ -28,6 +28,9 @@ export function addPlayer(room, name, socketId) {
     sessionToken: randomBytes(32).toString('hex'), // private: only this player ever gets it
     socketId,
     connected: true,
+    autoPlay: false, // true: the server makes this player's moves at once
+    missedTurns: 0, // turns in a row that ran out without a move from this player
+    hasLeft: false, // true: left a running game on purpose (not just disconnected)
   };
 
   room.players.push(player);
@@ -41,6 +44,7 @@ export function findPlayer(room, playerId) {
 
 // A player comes back with their session token. Returns the player and the socket they
 // used before, so the caller can close an old connection that is still open.
+// Coming back always turns auto-play off and forgets earlier missed turns.
 export function reconnectPlayer(room, sessionToken, socketId) {
   const player = room.players.find((candidate) =>
     tokensMatch(candidate.sessionToken, sessionToken),
@@ -52,6 +56,9 @@ export function reconnectPlayer(room, sessionToken, socketId) {
   const previousSocketId = player.socketId;
   player.socketId = socketId;
   player.connected = true;
+  player.autoPlay = false;
+  player.missedTurns = 0;
+  player.hasLeft = false;
   return { player, previousSocketId };
 }
 
@@ -68,7 +75,33 @@ export function removePlayer(room, playerId) {
   }
 }
 
+// After a game ends: back to the lobby with the players who are still connected.
+// Players who left are removed. The host's settings (deck size, turn length) stay.
+export function resetForNewGame(room) {
+  room.players = room.players.filter((player) => player.connected);
+
+  for (const player of room.players) {
+    player.autoPlay = false;
+    player.missedTurns = 0;
+    player.hasLeft = false;
+  }
+
+  if (!room.players.some((player) => player.id === room.hostId)) {
+    room.hostId = room.players[0]?.id ?? null;
+  }
+
+  room.game = null;
+  room.status = 'lobby';
+  room.timerOn = false;
+  room.timerStartedBy = null;
+}
+
 // The part of a player that everyone in the room may see. Never the session token.
 export function toPublicPlayer(player) {
-  return { id: player.id, name: player.name, connected: player.connected };
+  return {
+    id: player.id,
+    name: player.name,
+    connected: player.connected,
+    autoPlay: player.autoPlay,
+  };
 }

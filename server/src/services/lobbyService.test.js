@@ -6,6 +6,7 @@ import {
   reconnectPlayer,
   markDisconnected,
   removePlayer,
+  resetForNewGame,
   toPublicPlayer,
 } from './lobbyService.js';
 import { GameRuleError } from './gameErrors.js';
@@ -35,6 +36,12 @@ describe('addPlayer', () => {
     expect(ash.id).not.toBe(misty.id);
     expect(ash.sessionToken).toMatch(/^[a-f0-9]{64}$/);
     expect(ash.sessionToken).not.toBe(misty.sessionToken);
+  });
+
+  it('starts a player with auto-play off and no missed turns', () => {
+    const player = addPlayer(makeRoom(), 'Ash', 'socket-1');
+
+    expect(player).toMatchObject({ autoPlay: false, missedTurns: 0, hasLeft: false });
   });
 
   it('rejects a name that is already used, ignoring upper and lower case', () => {
@@ -99,6 +106,17 @@ describe('reconnectPlayer', () => {
     expect(result.previousSocketId).toBe('socket-1');
   });
 
+  it('turns auto-play off and forgets missed turns and leaving', () => {
+    const room = makeRoom();
+    const ash = addPlayer(room, 'Ash', 'socket-1');
+    markDisconnected(ash);
+    Object.assign(ash, { autoPlay: true, missedTurns: 2, hasLeft: true });
+
+    reconnectPlayer(room, ash.sessionToken, 'socket-2');
+
+    expect(ash).toMatchObject({ autoPlay: false, missedTurns: 0, hasLeft: false });
+  });
+
   it('rejects a token that belongs to nobody', () => {
     const room = makeRoom();
     addPlayer(room, 'Ash', 'socket-1');
@@ -107,12 +125,54 @@ describe('reconnectPlayer', () => {
   });
 });
 
+describe('resetForNewGame', () => {
+  it('goes back to the lobby with the players who are still connected', () => {
+    const room = makeRoom();
+    const ash = addPlayer(room, 'Ash', 'socket-1');
+    const misty = addPlayer(room, 'Misty', 'socket-2');
+    Object.assign(room, {
+      status: 'finished',
+      game: { phase: 'finished' },
+      timerOn: true,
+      timerStartedBy: ash.id,
+    });
+    Object.assign(ash, { autoPlay: true, missedTurns: 2 });
+    markDisconnected(misty);
+
+    resetForNewGame(room);
+
+    expect(room.status).toBe('lobby');
+    expect(room.game).toBeNull();
+    expect(room.timerOn).toBe(false);
+    expect(room.timerStartedBy).toBeNull();
+    expect(room.players.map((player) => player.name)).toEqual(['Ash']);
+    expect(ash).toMatchObject({ autoPlay: false, missedTurns: 0, hasLeft: false });
+  });
+
+  it('passes the host role to a player who is still here', () => {
+    const room = makeRoom();
+    const ash = addPlayer(room, 'Ash', 'socket-1');
+    const misty = addPlayer(room, 'Misty', 'socket-2');
+    room.status = 'finished';
+    markDisconnected(ash);
+
+    resetForNewGame(room);
+
+    expect(room.hostId).toBe(misty.id);
+  });
+});
+
 describe('public player data', () => {
   it('never includes the session token', () => {
     const room = makeRoom();
     const ash = addPlayer(room, 'Ash', 'socket-1');
 
-    expect(toPublicPlayer(ash)).toEqual({ id: ash.id, name: 'Ash', connected: true });
+    expect(toPublicPlayer(ash)).toEqual({
+      id: ash.id,
+      name: 'Ash',
+      connected: true,
+      autoPlay: false,
+    });
     expect(findPlayer(room, ash.id)).toBe(ash);
   });
 });
