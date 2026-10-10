@@ -14,7 +14,7 @@ services:
         value: 22
       # The only website allowed to call the API: your Vercel address, with no trailing slash.
       # CHANGE THIS to your real Vercel address after step 3.
-      - key: CLIENT_ORIGIN
+      - key: https://pokemon-multiplayer-card-game.vercel.app/
         value: https://pokemon-card-battle.vercel.app
       # One proxy (Render's) sits in front of the server: needed for real visitor IP addresses
       - key: TRUST_PROXY
