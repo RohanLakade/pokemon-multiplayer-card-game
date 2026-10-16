@@ -2,9 +2,7 @@
 
 [![CI](https://github.com/RohanLakade/pokemon-multiplayer-card-game/actions/workflows/ci.yml/badge.svg)](https://github.com/RohanLakade/pokemon-multiplayer-card-game/actions/workflows/ci.yml)
 
-A free, real-time multiplayer Top Trumps card game for 2 to 8 players, each on their own device.
-Choose a stat, secretly pick one card from your hand of five, and win the round when all cards are
-revealed together.
+A free, real-time Top Trumps card game for 1 to 8 players: play against the computer, or invite friends, each on their own device. Choose a stat, secretly pick one card from your hand of five, and win the round when all cards are revealed together.
 
 **Play it: https://pokemon-multiplayer-card-game.vercel.app**
 
@@ -27,6 +25,8 @@ The free game server sleeps when idle, so the first request can take up to a min
   scores share the win.
 - An optional turn timer that any player can start, auto-play for players who step away, and
   rejoining a running game after closing the tab.
+- **Play vs computer:** one click starts a 10-card game against a computer opponent. It is a normal  
+  player flagged as a bot and driven by the same auto-play logic as a player who stepped away, and it only ever looks at its own hand.
 
 ## What I built and learned
 
@@ -137,3 +137,4 @@ Socket.IO, server to client: `room:state`, `game:started`, `round:started`, `rou
 
 - The free server sleeps after 15 minutes without traffic and rooms are lost when it restarts.
 - Type badges and the three newest Pokémon are not included yet.
+- The computer always plays the best card for the stat. There is no easy mode yet.

@@ -17,6 +17,11 @@ export const DEFAULT_TURN_SECONDS = 90;
 // A player whose turn ran out this many times in a row is switched to auto-play
 export const MISSED_TURNS_BEFORE_AUTO_PLAY = 2;
 
+// The computer opponent: its name, and how long it "thinks" before each move, so the reveal
+// does not happen the instant a human picks.
+export const BOT_NAME = 'Computer';
+export const BOT_THINK_MS = 1000;
+
 // Room codes: 6 characters from an alphabet without look-alikes (no 0/O and no 1/I).
 // 32 characters over 6 places is about a billion possible codes.
 export const ROOM_CODE_LENGTH = 6;

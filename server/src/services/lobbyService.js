@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { MAX_PLAYERS } from '@pokemon-game/shared';
+import { BOT_NAME, MAX_PLAYERS } from '@pokemon-game/shared';
 import { GameRuleError } from './gameErrors.js';
 
 // Compares two tokens without leaking, through timing, how many characters matched.
@@ -7,6 +7,11 @@ function tokensMatch(a, b) {
   const first = Buffer.from(a);
   const second = Buffer.from(b);
   return first.length === second.length && timingSafeEqual(first, second);
+}
+
+// The people in a room. The computer player never counts for hosting, cleanup or presence.
+export function humanPlayers(room) {
+  return room.players.filter((player) => !player.isBot);
 }
 
 // Adds a new player to a room that is still in the lobby. The first player becomes the host.
@@ -31,11 +36,44 @@ export function addPlayer(room, name, socketId) {
     autoPlay: false, // true: the server makes this player's moves at once
     missedTurns: 0, // turns in a row that ran out without a move from this player
     hasLeft: false, // true: left a running game on purpose (not just disconnected)
+    isBot: false,
   };
 
   room.players.push(player);
   if (!room.hostId) room.hostId = player.id;
   return player;
+}
+
+// Adds the computer opponent to a lobby. It has no connection: the server plays for it, using the
+// same auto-play as a player who stepped away. It is never the host. A room has at most one.
+export function addBot(room) {
+  if (room.status !== 'lobby') {
+    throw new GameRuleError('GAME_IN_PROGRESS', 'This game has already started');
+  }
+  if (room.players.length >= MAX_PLAYERS) {
+    throw new GameRuleError('ROOM_FULL', 'This room is full');
+  }
+  if (room.players.some((player) => player.isBot)) {
+    throw new GameRuleError('BOT_ALREADY_ADDED', 'The computer player is already in this room');
+  }
+
+  const nameTaken = room.players.some(
+    (player) => player.name.toLowerCase() === BOT_NAME.toLowerCase(),
+  );
+  const bot = {
+    id: randomUUID(),
+    name: nameTaken ? `${BOT_NAME} (bot)` : BOT_NAME,
+    sessionToken: randomBytes(32).toString('hex'), // never sent to anyone
+    socketId: null,
+    connected: true, // always "here": the server is the one playing
+    autoPlay: true,
+    missedTurns: 0,
+    hasLeft: false,
+    isBot: true,
+  };
+
+  room.players.push(bot);
+  return bot;
 }
 
 export function findPlayer(room, playerId) {
@@ -67,27 +105,28 @@ export function markDisconnected(player) {
   player.socketId = null;
 }
 
-// Removes a player. If the host left, the next player becomes host.
+// Removes a player. If the host left, the next human becomes host (never the computer).
 export function removePlayer(room, playerId) {
   room.players = room.players.filter((player) => player.id !== playerId);
   if (room.hostId === playerId) {
-    room.hostId = room.players[0]?.id ?? null;
+    room.hostId = humanPlayers(room)[0]?.id ?? null;
   }
 }
 
 // After a game ends: back to the lobby with the players who are still connected.
-// Players who left are removed. The host's settings (deck size, turn length) stay.
+// Players who left are removed. The host's settings (deck size, turn length) stay, and the
+// computer player stays seated, still on auto-play.
 export function resetForNewGame(room) {
   room.players = room.players.filter((player) => player.connected);
 
   for (const player of room.players) {
-    player.autoPlay = false;
+    player.autoPlay = player.isBot;
     player.missedTurns = 0;
     player.hasLeft = false;
   }
 
   if (!room.players.some((player) => player.id === room.hostId)) {
-    room.hostId = room.players[0]?.id ?? null;
+    room.hostId = humanPlayers(room)[0]?.id ?? null;
   }
 
   room.game = null;
@@ -103,5 +142,6 @@ export function toPublicPlayer(player) {
     name: player.name,
     connected: player.connected,
     autoPlay: player.autoPlay,
+    isBot: player.isBot,
   };
 }

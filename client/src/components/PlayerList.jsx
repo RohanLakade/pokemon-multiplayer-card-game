@@ -1,4 +1,5 @@
 // The people in a room. Status is written as text ("Online"), never shown by color alone.
+// The computer player is always "here", so it gets a label instead of a status.
 function PlayerList({ players, hostId, youId }) {
   return (
     <ul
@@ -19,9 +20,15 @@ function PlayerList({ players, hostId, youId }) {
                 Host
               </span>
             )}
-            <span className={player.connected ? 'text-emerald-300' : 'text-amber-300'}>
-              {player.connected ? 'Online' : 'Offline'}
-            </span>
+            {player.isBot ? (
+              <span className="rounded-full bg-sky-900 px-2 py-0.5 text-xs font-semibold text-sky-100">
+                Computer
+              </span>
+            ) : (
+              <span className={player.connected ? 'text-emerald-300' : 'text-amber-300'}>
+                {player.connected ? 'Online' : 'Offline'}
+              </span>
+            )}
           </span>
         </li>
       ))}

@@ -74,7 +74,11 @@ function GamePage() {
   const leaderName = players.find((player) => player.id === leaderId)?.name ?? '';
   const stat = STATS.find((candidate) => candidate.key === chosenStat);
   const offlineIds = room.players.filter((player) => !player.connected).map((player) => player.id);
-  const autoPlayIds = room.players.filter((player) => player.autoPlay).map((player) => player.id);
+  const botIds = room.players.filter((player) => player.isBot).map((player) => player.id);
+  // The computer is always on auto-play: it is shown as "Computer", not as "Auto-play"
+  const autoPlayIds = room.players
+    .filter((player) => player.autoPlay && !player.isBot)
+    .map((player) => player.id);
   const turnMessage = getTurnMessage({
     phase,
     canChooseStat,
@@ -110,6 +114,7 @@ function GamePage() {
           phase={phase}
           offlineIds={offlineIds}
           autoPlayIds={autoPlayIds}
+          botIds={botIds}
         />
       </section>
 

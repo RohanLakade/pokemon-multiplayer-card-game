@@ -19,7 +19,8 @@ const ABANDONED_ROOM_MS = 10 * 60 * 1000;
 // room = { code, createdAt, status: 'lobby' | 'playing' | 'finished', hostId, players,
 //          deckSize and turnSeconds (chosen by the host), game, emptySince,
 //          timerOn and timerStartedBy (the optional turn timer),
-//          turnTimer, turnEndsAt, turnStep (the running clock) }
+//          turnTimer, turnEndsAt, turnStep (the running clock),
+//          botTimer (the computer player's pause before its next move) }
 const rooms = new Map();
 
 // crypto.randomInt is unpredictable, so codes cannot be guessed from earlier ones.
@@ -31,9 +32,10 @@ function makeCode() {
   return code;
 }
 
-// Forgets a room, and stops its turn timer so nothing fires for a room that no longer exists.
+// Forgets a room, and stops its timers so nothing fires for a room that no longer exists.
 function discardRoom(room) {
   clearTurnTimer(room);
+  clearTimeout(room.botTimer);
   rooms.delete(room.code);
 }
 
@@ -70,6 +72,7 @@ export function createRoom(now = Date.now()) {
     turnTimer: null,
     turnEndsAt: null,
     turnStep: null,
+    botTimer: null,
   };
   rooms.set(code, room);
   return room;
@@ -91,9 +94,10 @@ export function deleteRoom(code) {
 }
 
 // Remembers since when nobody has been connected to a room (or forgets it when someone is).
+// Only people count: the computer player is "connected" all the time.
 // Call it whenever a player connects or disconnects.
 export function touchPresence(room, now = Date.now()) {
-  room.emptySince = room.players.some((player) => player.connected) ? null : now;
+  room.emptySince = room.players.some((player) => player.connected && !player.isBot) ? null : now;
 }
 
 // What the REST API may show about a room. Players' private data is never included.

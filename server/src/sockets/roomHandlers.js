@@ -5,8 +5,10 @@ import {
 } from '@pokemon-game/shared';
 import { findRoom, deleteRoom, touchPresence } from '../services/roomsService.js';
 import {
+  addBot,
   addPlayer,
   findPlayer,
+  humanPlayers,
   reconnectPlayer,
   markDisconnected,
   removePlayer,
@@ -55,6 +57,7 @@ function reconnect(io, room, sessionToken, socket) {
 }
 
 // A player goes away. onPurpose is true when they clicked "leave" (not when the connection dropped).
+// Only people count here: a room where nobody but the computer is left has no reason to exist.
 function leaveRoom(io, socket, room, player, flow, { onPurpose = false } = {}) {
   socket.data.roomCode = null;
   socket.data.playerId = null;
@@ -62,7 +65,7 @@ function leaveRoom(io, socket, room, player, flow, { onPurpose = false } = {}) {
   if (room.status === 'lobby') {
     removePlayer(room, player.id);
 
-    if (room.players.length === 0) {
+    if (humanPlayers(room).length === 0) {
       deleteRoom(room.code);
       return;
     }
@@ -75,8 +78,8 @@ function leaveRoom(io, socket, room, player, flow, { onPurpose = false } = {}) {
   touchPresence(room);
   if (onPurpose) player.hasLeft = true;
 
-  // Everybody left on purpose: nobody can come back, so the room is deleted at once
-  if (room.players.every((member) => member.hasLeft)) {
+  // Every person left on purpose: nobody can come back, so the room is deleted at once
+  if (humanPlayers(room).every((member) => member.hasLeft)) {
     deleteRoom(room.code);
     return;
   }
@@ -148,6 +151,16 @@ export function registerRoomHandlers({ io, socket, on, failedJoins, clientIp, fl
     requireHostInLobby(room, player, 'the turn length');
 
     room.turnSeconds = turnSeconds;
+    sendRoomState(io, room);
+    return {};
+  });
+
+  // The host adds the computer opponent (one per room). It has no payload.
+  on('room:add-bot', {}, () => {
+    const { room, player } = getContext(socket);
+    requireHostInLobby(room, player, 'the computer opponent');
+
+    addBot(room);
     sendRoomState(io, room);
     return {};
   });

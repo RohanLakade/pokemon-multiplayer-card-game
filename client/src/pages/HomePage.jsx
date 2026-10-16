@@ -18,7 +18,7 @@ function HomePage() {
   const [code, setCode] = useState((searchParams.get('code') ?? '').toUpperCase().slice(0, 6));
   const [nameError, setNameError] = useState(null);
   const [codeError, setCodeError] = useState(null);
-  const { createAndJoin, joinExisting, isBusy, error } = useJoinRoom();
+  const { createAndJoin, joinExisting, playVsComputer, isBusy, error } = useJoinRoom();
   const { seat, forgetSeat } = useSavedSeat();
 
   // Being on the home page means "not in a room": drop any leftover connection and screen state.
@@ -40,6 +40,11 @@ function HomePage() {
     return result.success ? result.data : null;
   }
 
+  async function handlePlayVsComputer() {
+    const playerName = checkName();
+    if (playerName) await playVsComputer(playerName);
+  }
+
   async function handleCreate() {
     const playerName = checkName();
     if (playerName) await createAndJoin(playerName);
@@ -59,8 +64,8 @@ function HomePage() {
       <section className="mx-auto max-w-2xl text-center">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Pokémon Card Battle</h1>
         <p className="mt-4 text-lg text-slate-300">
-          A free multiplayer Top Trumps game for 2 to 8 players. Choose the stat you think will win,
-          pick the right card from your hand and beat your friends.
+          A free Top Trumps game for 1 to 8 players. Play against the computer, or invite friends.
+          Choose the stat you think will win, pick the right card from your hand and beat them.
         </p>
       </section>
 
@@ -101,23 +106,32 @@ function HomePage() {
             </p>
           )}
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3">
             <Button
               variant={code ? 'secondary' : 'primary'}
-              onClick={handleCreate}
+              onClick={handlePlayVsComputer}
               disabled={isBusy}
-              className="flex-1"
             >
-              {isBusy ? 'Connecting…' : 'Create a new room'}
+              {isBusy ? 'Connecting…' : 'Play vs computer'}
             </Button>
-            <Button
-              type="submit"
-              variant={code ? 'primary' : 'secondary'}
-              disabled={isBusy}
-              className="flex-1"
-            >
-              Join room
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                variant="secondary"
+                onClick={handleCreate}
+                disabled={isBusy}
+                className="flex-1"
+              >
+                Create a room for friends
+              </Button>
+              <Button
+                type="submit"
+                variant={code ? 'primary' : 'secondary'}
+                disabled={isBusy}
+                className="flex-1"
+              >
+                Join room
+              </Button>
+            </div>
           </div>
         </form>
       </section>
@@ -129,7 +143,7 @@ function HomePage() {
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-slate-300">
           <li>
             Each player gets a secret deck of Pokémon cards (10, 15 or 20, chosen by the host) and
-            holds 5 of them in hand.
+            holds 5 of them in hand. Against the computer, a game is 10 cards each.
           </li>
           <li>The round leader chooses one stat, such as Attack or Speed.</li>
           <li>
@@ -137,8 +151,8 @@ function HomePage() {
             together.
           </li>
           <li>
-            The best value in that stat wins the round. For Rank, the lower Pokédex number wins. The
-            winner leads next, and played cards are replaced from your deck.
+            The best value in that stat wins the round. For Rank, the lower number wins. The winner
+            leads next, and played cards are replaced from your deck.
           </li>
           <li>The player with the most round wins takes the game. Equal scores share the win.</li>
         </ol>

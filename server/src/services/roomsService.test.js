@@ -13,6 +13,7 @@ describe('rooms', () => {
       timerOn: false,
       timerStartedBy: null,
       emptySince: null,
+      botTimer: null,
     });
     expect(findRoom(room.code)).toBe(room);
   });
@@ -37,6 +38,18 @@ describe('presence', () => {
     room.players = [{ connected: false }, { connected: true }];
     touchPresence(room, 2000);
     expect(room.emptySince).toBeNull();
+  });
+
+  it('does not count the computer player as somebody being here', () => {
+    const room = createRoom();
+
+    room.players = [
+      { connected: false, isBot: false },
+      { connected: true, isBot: true },
+    ];
+    touchPresence(room, 1000);
+
+    expect(room.emptySince).toBe(1000);
   });
 
   it('forgets a room that nobody came back to for more than 10 minutes', () => {

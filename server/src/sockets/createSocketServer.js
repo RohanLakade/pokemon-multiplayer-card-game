@@ -7,7 +7,7 @@ import { registerRoomHandlers } from './roomHandlers.js';
 import { registerGameHandlers } from './gameHandlers.js';
 
 // Attaches Socket.IO to the HTTP server. "cards" is the loaded card roster.
-// config.turnSeconds is optional: tests use short turns.
+// config.turnSeconds and config.botThinkMs are optional: tests use short turns and pauses.
 export function createSocketServer(httpServer, { config, cards }) {
   const io = new Server(httpServer, {
     // Only the client website may connect from a browser (Socket.IO has its own CORS setting)
@@ -20,8 +20,13 @@ export function createSocketServer(httpServer, { config, cards }) {
   const eventLimiter = createRateCounter({ limit: 30, windowMs: 10 * 1000 });
   const failedJoins = createRateCounter({ limit: 10, windowMs: 10 * 60 * 1000 });
 
-  // One game flow serves every room: it knows how to run turns, the clock and auto-play
-  const flow = createGameFlow({ cards, turnSeconds: config.turnSeconds });
+  // One game flow serves every room: it knows how to run turns, the clock, auto-play and the
+  // computer player
+  const flow = createGameFlow({
+    cards,
+    turnSeconds: config.turnSeconds,
+    botThinkMs: config.botThinkMs,
+  });
 
   io.on('connection', (socket) => {
     const clientIp = getClientIp(socket.request, config.trustProxy);

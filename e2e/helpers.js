@@ -10,7 +10,7 @@ export async function startGame(browser) {
 
   await host.goto('/');
   await host.getByLabel('Your name').fill('Alice');
-  await host.getByRole('button', { name: 'Create a new room' }).click();
+  await host.getByRole('button', { name: 'Create a room for friends' }).click();
   await expect(host).toHaveURL(/\/lobby\/[A-Z2-9]{6}$/);
   const code = host.url().split('/').pop();
 

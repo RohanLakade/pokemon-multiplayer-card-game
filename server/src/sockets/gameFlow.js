@@ -1,7 +1,7 @@
-import { MISSED_TURNS_BEFORE_AUTO_PLAY } from '@pokemon-game/shared';
+import { BOT_THINK_MS, MISSED_TURNS_BEFORE_AUTO_PLAY } from '@pokemon-game/shared';
 import { createAutoPlayer } from '../services/autoPlayService.js';
 import { GameRuleError } from '../services/gameErrors.js';
-import { findPlayer } from '../services/lobbyService.js';
+import { findPlayer, humanPlayers } from '../services/lobbyService.js';
 import {
   PHASES,
   chooseCard,
@@ -24,10 +24,15 @@ function toScores(game) {
 }
 
 // Runs a game: applies moves, sends the events, keeps the optional turn clock going and makes
-// the moves of players on auto-play. Every move, whether a player, the timer or auto-play made
-// it, goes through here. "cards" is the card roster. "turnSeconds" is optional and replaces the
-// room's setting (tests use 1 second turns).
-export function createGameFlow({ cards, turnSeconds: turnSecondsOverride } = {}) {
+// the moves of players on auto-play and of the computer player. Every move, whether a player,
+// the timer, auto-play or the computer made it, goes through here. "cards" is the card roster.
+// "turnSeconds" is optional and replaces the room's setting (tests use 1 second turns).
+// "botThinkMs" is how long the computer pauses before a move (tests use a short pause).
+export function createGameFlow({
+  cards,
+  turnSeconds: turnSecondsOverride,
+  botThinkMs = BOT_THINK_MS,
+} = {}) {
   const autoPlayer = createAutoPlayer(cards);
 
   function getTurnMs(room) {
@@ -146,20 +151,60 @@ export function createGameFlow({ cards, turnSeconds: turnSecondsOverride } = {})
     }
   }
 
-  // Players on auto-play move at once, so nobody waits for the clock. Each move can advance the
-  // game and make another auto-play player the one we wait for, so we keep going.
+  // The smart move for a player who has to move now: choose the stat, or pick a card
+  function makeMove(io, room, player) {
+    if (room.game.phase === PHASES.CHOOSING_STAT) {
+      performChooseStat(io, room, player, chooseStatFor(room, player));
+    } else {
+      performChooseCard(io, room, player, chooseCardFor(room, player));
+    }
+  }
+
+  // The computer waits a moment, makes ONE move, and then looks at what is pending again.
+  // Only one pause runs at a time per room.
+  function scheduleBot(io, room) {
+    if (room.botTimer || room.game.phase === PHASES.FINISHED) return;
+
+    const botId = getPendingPlayerIds(room.game).find((id) => findPlayer(room, id)?.isBot);
+    if (!botId) return;
+
+    room.botTimer = setTimeout(() => {
+      room.botTimer = null; // this pause is over
+      try {
+        handleBotTurn(io, room, botId);
+      } catch (error) {
+        console.error(error); // a failed move must never crash the server
+      }
+    }, botThinkMs);
+    room.botTimer.unref?.();
+  }
+
+  function handleBotTurn(io, room, botId) {
+    // The room may be gone, or the game over, or sent back to the lobby, during the pause
+    if (findRoom(room.code) !== room || room.status !== 'playing' || !room.game) return;
+
+    const bot = findPlayer(room, botId);
+    if (bot && getPendingPlayerIds(room.game).includes(botId)) {
+      makeMove(io, room, bot);
+    }
+    runAutoPlayers(io, room);
+  }
+
+  // Human players on auto-play move at once, so nobody waits for the clock. Each move can
+  // advance the game and make another auto-play player the one we wait for, so we keep going.
+  // The computer player is not moved here: it thinks first (see scheduleBot).
   function runAutoPlayers(io, room) {
     while (room.game.phase !== PHASES.FINISHED) {
-      const playerId = getPendingPlayerIds(room.game).find((id) => findPlayer(room, id)?.autoPlay);
-      if (!playerId) return;
+      const playerId = getPendingPlayerIds(room.game).find((id) => {
+        const player = findPlayer(room, id);
+        return player?.autoPlay && !player.isBot;
+      });
+      if (!playerId) break;
 
-      const player = findPlayer(room, playerId);
-      if (room.game.phase === PHASES.CHOOSING_STAT) {
-        performChooseStat(io, room, player, chooseStatFor(room, player));
-      } else {
-        performChooseCard(io, room, player, chooseCardFor(room, player));
-      }
+      makeMove(io, room, findPlayer(room, playerId));
     }
+
+    scheduleBot(io, room);
   }
 
   // Can this player stop the timer? The player who started it can. If that player is offline or
@@ -184,6 +229,7 @@ export function createGameFlow({ cards, turnSeconds: turnSecondsOverride } = {})
       startTurn(io, room);
       emitToEachPlayer(io, room, 'game:started', () => ({ game: getPublicState(room.game) }));
       sendRoundStarted(io, room);
+      runAutoPlayers(io, room); // the computer may be the first leader
     },
 
     // A move made by the player themselves also clears their missed turns
@@ -244,8 +290,8 @@ export function createGameFlow({ cards, turnSeconds: turnSecondsOverride } = {})
     handlePlayerAway(io, room) {
       if (!room.game || room.game.phase === PHASES.FINISHED) return;
 
-      // With nobody connected there is nobody to wait for or to play against: freeze the game
-      if (room.players.every((player) => !player.connected)) {
+      // With no human connected there is nobody to wait for or to play against: freeze the game
+      if (humanPlayers(room).every((player) => !player.connected)) {
         clearTurnTimer(room);
       }
     },

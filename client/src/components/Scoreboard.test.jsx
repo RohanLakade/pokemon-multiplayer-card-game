@@ -58,4 +58,18 @@ describe('Scoreboard', () => {
 
     expect(screen.getByText('Choosing… · Auto-play')).toBeInTheDocument();
   });
+
+  it('writes "Computer" next to the computer player', () => {
+    render(
+      <Scoreboard
+        players={players}
+        leaderId="p1"
+        youId="p1"
+        phase="choosing-cards"
+        botIds={['p2']}
+      />,
+    );
+
+    expect(screen.getByText('Computer · Choosing…')).toBeInTheDocument();
+  });
 });

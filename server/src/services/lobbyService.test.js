@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { MAX_PLAYERS } from '@pokemon-game/shared';
 import {
+  addBot,
   addPlayer,
   findPlayer,
+  humanPlayers,
   reconnectPlayer,
   markDisconnected,
   removePlayer,
@@ -41,7 +43,12 @@ describe('addPlayer', () => {
   it('starts a player with auto-play off and no missed turns', () => {
     const player = addPlayer(makeRoom(), 'Ash', 'socket-1');
 
-    expect(player).toMatchObject({ autoPlay: false, missedTurns: 0, hasLeft: false });
+    expect(player).toMatchObject({
+      autoPlay: false,
+      missedTurns: 0,
+      hasLeft: false,
+      isBot: false,
+    });
   });
 
   it('rejects a name that is already used, ignoring upper and lower case', () => {
@@ -58,6 +65,59 @@ describe('addPlayer', () => {
 
     const startedRoom = makeRoom({ status: 'playing' });
     expectRuleError(() => addPlayer(startedRoom, 'Late', 'socket-y'), 'GAME_IN_PROGRESS');
+  });
+});
+
+describe('addBot', () => {
+  it('adds one computer player that is always here, on auto-play, and never the host', () => {
+    const room = makeRoom();
+    const ash = addPlayer(room, 'Ash', 'socket-1');
+
+    const bot = addBot(room);
+
+    expect(bot).toMatchObject({
+      name: 'Computer',
+      isBot: true,
+      connected: true,
+      autoPlay: true,
+      socketId: null,
+    });
+    expect(room.hostId).toBe(ash.id);
+    expect(humanPlayers(room)).toEqual([ash]);
+  });
+
+  it('allows only one computer player, and only in a lobby that is not full', () => {
+    const room = makeRoom();
+    addPlayer(room, 'Ash', 'socket-1');
+    addBot(room);
+    expectRuleError(() => addBot(room), 'BOT_ALREADY_ADDED');
+
+    expectRuleError(() => addBot(makeRoom({ status: 'playing' })), 'GAME_IN_PROGRESS');
+
+    const fullRoom = makeRoom();
+    for (let i = 0; i < MAX_PLAYERS; i += 1) addPlayer(fullRoom, `Player ${i}`, `socket-${i}`);
+    expectRuleError(() => addBot(fullRoom), 'ROOM_FULL');
+  });
+
+  it('uses another name when a human is already called Computer', () => {
+    const room = makeRoom();
+    addPlayer(room, 'computer', 'socket-1');
+
+    expect(addBot(room).name).toBe('Computer (bot)');
+  });
+
+  it('passes the host role to the next human, never to the computer', () => {
+    const room = makeRoom();
+    const ash = addPlayer(room, 'Ash', 'socket-1');
+    addBot(room);
+    const misty = addPlayer(room, 'Misty', 'socket-2');
+
+    removePlayer(room, ash.id);
+    expect(room.hostId).toBe(misty.id);
+
+    removePlayer(room, misty.id);
+    expect(room.hostId).toBeNull();
+    expect(room.players).toHaveLength(1); // only the computer is left
   });
 });
 
@@ -160,6 +220,23 @@ describe('resetForNewGame', () => {
 
     expect(room.hostId).toBe(misty.id);
   });
+
+  it('keeps the computer seated and on auto-play, and never makes it the host', () => {
+    const room = makeRoom();
+    const ash = addPlayer(room, 'Ash', 'socket-1');
+    const bot = addBot(room);
+    Object.assign(room, { status: 'finished', game: { phase: 'finished' } });
+    markDisconnected(ash);
+    const misty = addPlayer(makeRoom(), 'Misty', 'socket-2'); // a player of another room: unused
+    expect(misty.isBot).toBe(false);
+
+    resetForNewGame(room);
+
+    // The only human was offline, so only the computer is left, and there is no host
+    expect(room.players).toEqual([bot]);
+    expect(bot.autoPlay).toBe(true);
+    expect(room.hostId).toBeNull();
+  });
 });
 
 describe('public player data', () => {
@@ -172,7 +249,15 @@ describe('public player data', () => {
       name: 'Ash',
       connected: true,
       autoPlay: false,
+      isBot: false,
     });
     expect(findPlayer(room, ash.id)).toBe(ash);
+  });
+
+  it('says which player is the computer', () => {
+    const bot = addBot(makeRoom());
+
+    expect(toPublicPlayer(bot)).toMatchObject({ name: 'Computer', isBot: true });
+    expect(JSON.stringify(toPublicPlayer(bot))).not.toContain('sessionToken');
   });
 });

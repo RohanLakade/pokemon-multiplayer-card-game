@@ -1,8 +1,9 @@
 // One line of words about what a player is doing. Never color alone.
-function getStatus(player, { leaderId, phase, isOffline, isAutoPlay }) {
+function getStatus(player, { leaderId, phase, isOffline, isAutoPlay, isBot }) {
   const status = [];
   const isLeader = player.id === leaderId;
 
+  if (isBot) status.push('Computer');
   if (isLeader) status.push('Leader');
   if (phase === 'choosing-stat' && isLeader) status.push('Choosing stat…');
   if (phase === 'choosing-cards') status.push(player.hasPicked ? 'Picked' : 'Choosing…');
@@ -13,7 +14,15 @@ function getStatus(player, { leaderId, phase, isOffline, isAutoPlay }) {
 }
 
 // Everyone's round wins, how many cards they have left, and what they are doing right now.
-function Scoreboard({ players, leaderId, youId, phase, offlineIds = [], autoPlayIds = [] }) {
+function Scoreboard({
+  players,
+  leaderId,
+  youId,
+  phase,
+  offlineIds = [],
+  autoPlayIds = [],
+  botIds = [],
+}) {
   return (
     <ul aria-label="Scoreboard" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {players.map((player) => (
@@ -37,6 +46,7 @@ function Scoreboard({ players, leaderId, youId, phase, offlineIds = [], autoPlay
               phase,
               isOffline: offlineIds.includes(player.id),
               isAutoPlay: autoPlayIds.includes(player.id),
+              isBot: botIds.includes(player.id),
             })}
           </p>
         </li>
