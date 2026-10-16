@@ -18,13 +18,15 @@
     "build:client": "npm run build --workspace @pokemon-game/client",
     "build:cards": "npm run build:cards --workspace @pokemon-game/scripts",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --omit=dev --audit-level=high"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
